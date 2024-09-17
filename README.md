@@ -40,7 +40,7 @@ The `src/scripts/` folder hosts our scripts which provide varrying functionaliti
     - Open the `UMARV-CV-ScenePerception` folder.
         - Common mistake: Opening the `UMARV` folder or the `ScenePerception` folder.
         - IMPORTANT: Keep your working directory as `UMARV-CV-ScenePerception` when running scripts and notebooks.
-6. Before starting development, install the following [Python libraries](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/main/docs/requirements.md) on your machine / virtual environment.
+6. Before starting development, install the following [Python libraries](https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/requirements.md) on your machine / virtual environment.
     - ```pip install opencv-python```
     - ```pip install torch```
     - ```pip install scikit-learn```
@@ -64,8 +64,8 @@ The `src/scripts/` folder hosts our scripts which provide varrying functionaliti
 This repository allows development flexability to work in multiple environments, including:
     - Windows
     - Mac
-    - Google Colab - [Working with Google Colab](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/users/AHT/docs/working_with_environments.md#google-colab)
-    - LambdaLabs - [Working with LambdaLabs](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/users/AHT/docs/working_with_environments.md#lambdalabs)
+    - Google Colab - [Working with Google Colab](https://github.com/umigv/UMARV-CV-ScenePerception/blob/users/AHT/docs/working_with_environments.md#google-colab)
+    - LambdaLabs - [Working with LambdaLabs](https://github.com/umigv/UMARV-CV-ScenePerception/blob/users/AHT/docs/working_with_environments.md#lambdalabs)
     - Jetson (coming soon)
 
 ## Developing Models
@@ -76,7 +76,7 @@ This repository allows development flexability to work in multiple environments,
     - `create_copy_of_model.py` creates a copy of a model using its model id
 3. Click "Run Python File in Termainl".
 4. Answer the prompts in the terminal.
-5. Go through [Working With Models](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/users/AHT/docs/creating_models.md)
+5. Go through [Working With Models](https://github.com/umigv/UMARV-CV-ScenePerception/blob/users/AHT/docs/creating_models.md)
 
 ## Developing Algorithms
 
