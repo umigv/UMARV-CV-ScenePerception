@@ -27,7 +27,7 @@ The `src/scripts/` folder hosts our scripts which provide varrying functionaliti
     - ```cd UMARV```
     - ```mkdir ScenePerception```
     - ```cd ScenePerception```
-    - ```git clone https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception.git .```
+    - ```git clone https://github.com/umigv/UMARV-CV-ScenePerception.git```
     - ```cd UMARV-CV-ScenePerception```
     - IMPORTANT: Replace your branch name in the end of the next 2 commands.
         - your_branch_name = "user/{your_name_with_no_spaces}"
