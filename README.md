@@ -12,7 +12,7 @@ The `src/scripts/` folder hosts our scripts which provide varrying functionaliti
 
 ## How To Interact With This Repository
 
-[Video Tutorial](https://youtube.com) <!-- TODO Create video and add link -->
+[Video Tutorial](https://youtube.com) Coming Soon!!<!-- TODO Create video and add link -->
 
 1. Have git installed on your computer.
     - [git installation guide](https://git-scm.com/downloads)
