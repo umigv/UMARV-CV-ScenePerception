@@ -1,5 +1,5 @@
-# {Model title here}
-### by {model author here}
+# DRNN/DCNN ML Lane Detection
+### by Parsanna Koirala
 
 # Model description
 {model description here}
