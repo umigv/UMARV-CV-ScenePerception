@@ -78,6 +78,14 @@ This repository allows development flexability to work in multiple environments,
 4. Answer the prompts in the terminal.
 5. Go through [Working With Models](https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/creating_models.md)
 
+## Machine Learning Model Leaderboard
+
+This leaderboard showcases the top performing segmentation models developed by UMARV members based on the average accuracy of the model during testing. Once you have developed a PyTorch model that has higher accuracy, you are free to add your model to the leaderboard by editing the main branch README.md. Still keep the model folder in your personal branch only.
+
+| #   | Name | Accuracy | Other Metrics | Creators | Git Branch Name
+| --- | ---- |---- | ---- | ---------- | ---- |
+| 1   | 32mw3qk4 | 0.2390 | <details> Mean IoU: 0.1083; Mean Dice Coeffecient: 0.1872 </details> | Awrod | Main |
+
 ## Developing Algorithms
 
 Functionality coming soon. For the time being, refer to the [LaneDetection repository](https://github.com/AwrodHaghiTabrizi/UMARV-CV-LaneDetection) for Algorithms support.
