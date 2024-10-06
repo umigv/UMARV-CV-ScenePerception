@@ -1,0 +1,7 @@
+{
+    "model_name": "CRNN",
+    "model_description": "CRNN for Lane Detection",
+    "author": "Peter Susanto",
+    "model_id": null,
+    "creation_date": "October 5th, 2024, 14:23:25"
+}
