@@ -40,7 +40,7 @@ The `src/scripts/` folder hosts our scripts which provide varrying functionaliti
     - Open the `UMARV-CV-ScenePerception` folder.
         - Common mistake: Opening the `UMARV` folder or the `ScenePerception` folder.
         - IMPORTANT: Keep your working directory as `UMARV-CV-ScenePerception` when running scripts and notebooks.
-6. Before starting development, install the following [Python libraries](https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/requirements.md) on your machine / virtual environment.
+6. Before starting development, install the following [Python libraries](https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/requirements.md) on your machine / virtual environment either manually or with ```pip install -r requirements.txt```.
     - ```pip install opencv-python```
     - ```pip install torch```
     - ```pip install scikit-learn```
