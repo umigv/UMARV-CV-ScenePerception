@@ -3,6 +3,7 @@ from datetime import datetime
 import sys
 import json
 import nbformat
+import git
 
 repo = git.Repo('.', search_parent_directories=True)
 repo_dir = repo.working_tree_dir
