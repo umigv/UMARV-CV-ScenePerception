@@ -7,10 +7,8 @@ from ultralytics import YOLO
 
 def download_dataset():
     # Download existing dataset
-    rf = Roboflow(api_key="lsvvGPgOaqWqgMgoZWKS")
-    project = rf.workspace("arv-ysash").project("drivable-area-model")
-    version = project.version(9)
-    dataset = version.download("yolov8")
+    # TODO ADD ROBOFLOW CODE HERE
+    pass
 
 def load_and_run_models():
     # Load models
