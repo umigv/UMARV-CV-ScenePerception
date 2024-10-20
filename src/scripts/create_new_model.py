@@ -16,8 +16,8 @@ def main():
     model_id_b10 = int(creation_date.strftime("%y%m%d%H%M%S"))
     model_id = base10_to_base36(model_id_b10)
 
-    template_model_dir = f"{repo_dir}/models/model_template"
-    new_model_dir = f"{repo_dir}/models/model_{model_id}"
+    template_model_dir = f"/Users/sophiawang/UMARV/ScenePerception/UMARV-CV-ScenePerception/models/model_template"
+    new_model_dir = f"/Users/sophiawang/UMARV/ScenePerception/UMARV-CV-ScenePerception/models/model_{model_id}"
     copy_directory(
         source_dir = template_model_dir,
         destination_dir = new_model_dir
