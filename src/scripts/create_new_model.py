@@ -4,7 +4,8 @@ import sys
 import json
 import nbformat
 
-repo_dir = os.getcwd()
+repo = git.Repo('.', search_parent_directories=True)
+repo_dir = repo.working_tree_dir
 
 src_dir = os.path.join(repo_dir, "src")
 sys.path.insert(0, src_dir)
