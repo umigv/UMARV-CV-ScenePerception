@@ -1,0 +1,31 @@
+{
+    "comp24_walkthrough": {
+        "Accuracy": 0.18603346082899305,
+        "Background Precision": 0.4465895953757192,
+        "Background Recall": 0.19740643101701627,
+        "Background Specificity": 0.790382946059906,
+        "Background F1 Score": 0.2737894433210167,
+        "Background IoU": 0.1586072146224588,
+        "Background Dice Coefficient": 0.2737894475724324,
+        "Lane Lines Precision": 0.02733719690838715,
+        "Lane Lines Recall": 0.25151442182843703,
+        "Lane Lines Specificity": 0.6980120507938864,
+        "Lane Lines F1 Score": 0.049314392072727024,
+        "Lane Lines IoU": 0.02528054427915556,
+        "Lane Lines Dice Coefficient": 0.049314393841208726,
+        "Drivable Area Precision": 0.4567532650613766,
+        "Drivable Area Recall": 0.15618519343948312,
+        "Drivable Area Specificity": 0.8373619931437746,
+        "Drivable Area F1 Score": 0.2327740898110282,
+        "Drivable Area IoU": 0.13171722571905475,
+        "Drivable Area Dice Coefficient": 0.23277409360870352,
+        "Cones Precision": 0.04111588868631952,
+        "Cones Recall": 0.35360384346857443,
+        "Cones Specificity": 0.6646620289570532,
+        "Cones F1 Score": 0.07366612162714395,
+        "Cones IoU": 0.03824161760941883,
+        "Cones Dice Coefficient": 0.07366612349343356,
+        "Mean IoU": 0.08846165055752199,
+        "Mean Dice Coefficient": 0.15738601462894455
+    }
+}
