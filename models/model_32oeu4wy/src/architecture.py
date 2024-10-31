@@ -178,9 +178,9 @@ class DecoderBlock(nn.Module):
 
 # ======================================================================================== #
 
-class scenePerceptionModel(nn.Module):
+class scene_perception_model(nn.Module):
   def __init__(self, lookback, input_channels = 3, num_classes = 4):
-    super(scenePerceptionModel, self).__init__()
+    super(scene_perception_model, self).__init__()
     
     # calculating the total input channels needed based on lookback
     self.total_input_channels = input_channels * (lookback['count'] + 1)
