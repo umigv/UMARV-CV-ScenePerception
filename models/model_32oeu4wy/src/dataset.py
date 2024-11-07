@@ -53,23 +53,23 @@ class Dataset_Class(Dataset):
     data_raw = frames[0].detach().clone()
 
     #Get label
-    #label_background_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/background/{data_idx_str}.jpg"
+    label_background_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/background/{data_idx_str}.jpg"
     label_lane_lines_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/lane_lines/{data_idx_str}.jpg"
-    #label_drivable_area_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/drivable_area/{data_idx_str}.jpg"
-    #label_cones_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/cones/{data_idx_str}.jpg"
+    label_drivable_area_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/drivable_area/{data_idx_str}.jpg"
+    label_cones_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/cones/{data_idx_str}.jpg"
 
-    #label_background = torch.tensor(cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    label_background = torch.tensor(cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
     label_lane_lines = torch.tensor(cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
-    #label_drivable_area = torch.tensor(cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
-    #label_cones = torch.tensor(cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    label_drivable_area = torch.tensor(cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    label_cones = torch.tensor(cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
     
-    #label_shape = label_background.shape
-    #label = torch.zeros((label_shape[0], label_shape[1], 4), device=self.device, dtype=torch.long)
+    label_shape = label_background.shape
+    label = torch.zeros((label_shape[0], label_shape[1], 4), device=self.device, dtype=torch.long)
 
-    #label[..., 0] = torch.where(label_background > self.input_threshold, 1, 0)
+    label[..., 0] = torch.where(label_background > self.input_threshold, 1, 0)
     label[..., 1] = torch.where(label_lane_lines > self.input_threshold, 1, 0)
-    #label[..., 2] = torch.where(label_drivable_area > self.input_threshold, 1, 0)
-    #label[..., 3] = torch.where(label_cones > self.input_threshold, 1, 0)
+    label[..., 2] = torch.where(label_drivable_area > self.input_threshold, 1, 0)
+    label[..., 3] = torch.where(label_cones > self.input_threshold, 1, 0)
 
     label = self.default_label_transform(label.permute(2, 0, 1)).permute(1, 2, 0)
 
