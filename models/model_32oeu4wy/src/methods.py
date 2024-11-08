@@ -130,7 +130,8 @@ def create_datasets(lookback, device=None, datasets=None, include_all_datasets=T
             train_val_data.extend([{'dataset': f"{dataset_category}/{dataset_name}", 'idx': idx} for idx, dataset_name in zip(category_data_idxs, category_dataset_names)])
 
     # Split into train and val and create datasets
-    train_data, val_data = train_test_split(train_val_data, test_size=val_ratio, random_state=random.randint(1, 100))
+    #train_data, val_data = train_test_split(train_val_data, test_size=val_ratio, random_state=random.randint(1, 100))
+    train_data, val_data = train_test_split(train_val_data, test_size=val_ratio, random_state=None, shuffle=False)
     train_dataset = Dataset_Class(data=train_data, augment=True, device=device, label_input_threshold=.1, lookback=lookback)
     val_dataset = Dataset_Class(data=val_data, augment=False, device=device, label_input_threshold=.1, lookback=lookback)
 
