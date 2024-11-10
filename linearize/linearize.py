@@ -1,7 +1,9 @@
 """
 Take in a numpy 2D array as a mask, and then output the turning angle
 
-Daniel X He <xinzhouh@umich.edu>
+Author(s): Daniel X He <xinzhouh@umich.edu>
+Version: 1.0.0
+Edition: November 10, 2024
 
 """
 import numpy as np
@@ -17,7 +19,7 @@ mask_matrix = np.array(
         [0, 1, 0, 1]
     ])
 
-def split_by_discontinuity(lst, threshold):
+def split_by_discontinuity(lst, threshold=1):
     """Split the list if there is a discontinuity, helpful for later positional analysis."""
     if not lst:
         return []
@@ -62,11 +64,11 @@ def endpoints(mask_matrix):
                 edge_ones['left'].append(int(positions[row][0]))
         # If the row number is len(mask_matrix) - 1, the one is on the bottom edge
         if positions[row][0] == len(mask_matrix) - 1:
-            if edge_ones.get('bot') is not None:
-                edge_ones['bot'].append(int(positions[row][1]))
+            if edge_ones.get('bottom') is not None:
+                edge_ones['bottom'].append(int(positions[row][1]))
             else:
-                edge_ones['bot'] = []
-                edge_ones['bot'].append(int(positions[row][1]))
+                edge_ones['bottom'] = []
+                edge_ones['bottom'].append(int(positions[row][1]))
         # If the row number is len(mask_matrix[0]) - 1, the one is on the right edge
         if positions[row][1] == len(mask_matrix[0]) - 1:
             if edge_ones.get('right') is not None:
@@ -82,7 +84,7 @@ def endpoints(mask_matrix):
     for key, list_edge_one in edge_ones.items():
         if len(list_edge_one) > 1:
             # We do not need to 'split' any list if there is only one element
-            edge_ones[key] = split_by_discontinuity(list_edge_one, 1)
+            edge_ones[key] = split_by_discontinuity(list_edge_one)
         # end if
     # end for
 
@@ -91,15 +93,26 @@ def endpoints(mask_matrix):
 # end def
 
 def compute_angle(endpoints):
-    # W
-    # First, we check if each edge has the endpoints
-    if endpoints.get(endpoints):
-        # If the top edge has the endpoints
-        # Check if it is divided
-        if len(endpoints[endpoints]) > 1:
-            # If so, we assume they are the endpoints of the left/right lanes
-            ...
-    ...
+    # Make a copy of the data structure to avoid accidental modification
+    endpoints_copy = endpoints
+
+    # We loop through the dictionary to get the endpoints info
+    for edge, clusters in endpoints_copy.items():
+        # edge for each edge, clusters for the lane line info of the edge
+        # We check if each edge has the endpoints
+        if clusters:
+            # If the top edge has the endpoints
+            # Check if it is divided
+            if len(clusters) > 1:
+                # If so, we assume they are the endpoints of the left/right lanes
+                print(f'Two lanes ended on the {edge}')
+            else:
+                # We have exactly one lane line endpoints
+                print(f'One lane line ends on the {edge}')
+            # end if endpoints
+        # end if top
+    # end for endpoints
+# end def
 
 def main(mask_matrix):
     # First, make a copy of the mask to avoid the change of the original structure
