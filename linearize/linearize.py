@@ -1,5 +1,12 @@
+"""
+Take in a numpy 2D array as a mask, and then output the turning angle
+
+Daniel X He <xinzhouh@umich.edu>
+
+"""
 import numpy as np
 
+# Test data
 mask_matrix = np.array(
     [
         [1, 1, 0, 1],
@@ -10,9 +17,27 @@ mask_matrix = np.array(
         [0, 1, 0, 1]
     ])
 
+def split_by_discontinuity(lst, threshold):
+    """Split the list if there is a discontinuity, helpful for later positional analysis."""
+    if not lst:
+        return []
+    
+    # Initialize the first sublist
+    sublists = [[lst[0]]]
+    
+    for i in range(1, len(lst)):
+        # Check if the difference between consecutive elements exceeds the threshold
+        if abs(lst[i] - lst[i - 1]) > threshold:
+            # Start a new sublist
+            sublists.append([lst[i]])
+        else:
+            # Append to the current sublist
+            sublists[-1].append(lst[i])
+    
+    return sublists
+
 def endpoints(mask_matrix):
-    # First, we scan the datapoint to determine the lane line position in the edge
-    left_lane_pos = right_lane_pos = bottommost_pos_range = topmost_pos_range = None
+    """Scan and extract the endpoints info on the edge."""
     # Find all positions of '1's in the mask matrix
     positions = np.argwhere(mask_matrix == 1)
     # We use a dictionary to store positions
@@ -53,15 +78,39 @@ def endpoints(mask_matrix):
     # end for rows
 
     # Now edge_ones contain the 1D position of all 1s existed on each edge, if any
-    print(edge_ones)
-    # We can examine the edge_ones dict to see how lane lines are located
-    if edge_ones.get('top'):
-        # If there are lane lines at the top
-        # 1. Put the leftmost of the lane line to the position
-        left_lane_pos
+    # We can detect the discontinuity between the positions of 1s to infer the shape of the lane line
+    for key, list_edge_one in edge_ones.items():
+        if len(list_edge_one) > 1:
+            # We do not need to 'split' any list if there is only one element
+            edge_ones[key] = split_by_discontinuity(list_edge_one, 1)
+        # end if
+    # end for
+
+    # Return the dictionary containing the endpoints info
+    return edge_ones
+# end def
+
+def compute_angle(endpoints):
+    # W
+    # First, we check if each edge has the endpoints
+    if endpoints.get(endpoints):
+        # If the top edge has the endpoints
+        # Check if it is divided
+        if len(endpoints[endpoints]) > 1:
+            # If so, we assume they are the endpoints of the left/right lanes
+            ...
+    ...
 
 def main(mask_matrix):
-    return endpoints(mask_matrix)
+    # First, make a copy of the mask to avoid the change of the original structure
+    mask_matrix_copy = mask_matrix
+    # Get the endpoints of the mask
+    endpoints_info = endpoints(mask_matrix_copy)
+    # Calculate the angle position
+    angle_positions = compute_angle(endpoints_info)
+
+    # Return the final results
+    return angle_positions
 
 if __name__ == "__main__":
     main(mask_matrix)
