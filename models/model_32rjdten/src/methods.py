@@ -32,7 +32,7 @@ def set_device(verbose=True):
                 print("If you want to enable GPU, go to Runtime > View Resources > Change Runtime Type and select GPU.")
     return device
 
-def upload_model_weights(model, dbx_access_token, delete=True):
+def upload_model_weights(model, dbx_access_token, delete=True, chunk_size=4 * 1024 * 1024):
     if dbx_access_token == "":
         print("Dropbox access token uninitialized. Unable to upload model weights.")
         return
@@ -44,9 +44,32 @@ def upload_model_weights(model, dbx_access_token, delete=True):
     dbx_model_weight_dir = f'/UMARV/ComputerVision/ScenePerception/model_weights/model_{os.getenv("MODEL_ID")}_weights.pth'
     local_model_weights_dir = f'{os.getenv("REPO_DIR")}/models/model_{os.getenv("MODEL_ID")}/content/weights.pth'   
     torch.save(model.state_dict(), local_model_weights_dir)
+    
+    # with open(local_model_weights_dir, 'rb') as file:
+    #     dbx.files_upload(file.read(), dbx_model_weight_dir, mode=dropbox.files.WriteMode("overwrite"))
+    # print("Uploaded model weights to Dropbox.")
+    
+    # for larger weight uploads to dbx
     with open(local_model_weights_dir, 'rb') as file:
-        dbx.files_upload(file.read(), dbx_model_weight_dir, mode=dropbox.files.WriteMode("overwrite"))
+        file_size = os.path.getsize(local_model_weights_dir)
+        
+        if file_size <= 150 * 1024 * 1024:
+            # if file size less than 150 mb, use regular upload
+            dbx.files_upload(file.read(), dbx_model_weight_dir, mode=dropbox.files.WriteMode("overwrite"))
+        else:
+            # for larger files using upload sessions
+            upload_session_start = dbx.files_upload_session_start(file.read(chunk_size))
+            cursor = dropbox.files.UploadSessionCursor(session_id=upload_session_start.session_id, offset=file.tell())
+            commit = dropbox.files.CommitInfo(path=dbx_model_weight_dir, mode=dropbox.files.WriteMode("overwrite"))
+
+            while file.tell() < file_size:
+                if (file_size - file.tell()) <= chunk_size:
+                    dbx.files_upload_session_finish(file.read(chunk_size), cursor, commit)
+                else:
+                    dbx.files_upload_session_append_v2(file.read(chunk_size), cursor)
+                    cursor.offset = file.tell()
     print("Uploaded model weights to Dropbox.")
+    
     if delete:
         os.remove(local_model_weights_dir)
 
