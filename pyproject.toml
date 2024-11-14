@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linearize"
+version = "1.0.0"
+dependencies = [
+    "pycodestyle",
+    "pydocstyle",
+    "pylint",
+    "pytest",
+    "numpy",
+]
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["linearize"]
+
+[tool.pylint."messages control"]
+disable = ["cyclic-import"]

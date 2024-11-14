@@ -12,5 +12,10 @@ def test_simple():
         [0, 1, 0, 1],
         [0, 1, 0, 1]
     ])
-    print(linearize.endpoints(mask))
+    # First, make a copy of the mask to avoid the change of the original structure
+    mask_matrix_copy = mask
+    # Get the endpoints of the mask
+    endpoints_info = linearize.endpoints(mask_matrix_copy)
+    # Calculate the angle position
+    angle_positions = linearize.compute_angle(mask_matrix_copy, endpoints_info)
 # End test simple
