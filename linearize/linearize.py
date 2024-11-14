@@ -3,10 +3,13 @@ Take in a numpy 2D array as a mask, and then output the turning angle
 
 Author(s): Daniel X He <xinzhouh@umich.edu>
 Version: 1.0.0
-Edition: November 10, 2024
+NOTE: This version works on the trivial case, where two lanes always starting from the bottom AND ending on the top,
+      the next development aims to be able to figure out if the lane turned to the left/right.
+Edition: November 13, 2024
 
 """
 import numpy as np
+import math
 
 # Test data
 mask_matrix = np.array(
@@ -92,35 +95,78 @@ def endpoints(mask_matrix):
     return edge_ones
 # end def
 
-def compute_angle(endpoints):
+def compute_angle(mask_matrix, endpoints):
     # Make a copy of the data structure to avoid accidental modification
+    mask_matrix_copy = mask_matrix
     endpoints_copy = endpoints
+    # To store the lanes starting positions
+    leftlane_start_pos = right_lane_start_pos = None
+    # To store the lanes ending positions
+    leftlane_end_pos = right_lane_end_pos = None
 
     # We loop through the dictionary to get the endpoints info
     for edge, clusters in endpoints_copy.items():
         # edge for each edge, clusters for the lane line info of the edge
         # We check if each edge has the endpoints
         if clusters:
-            # If the top edge has the endpoints
-            # Check if it is divided
+            # If the edge has the endpoints
+            # Check if it is divided, it is considered as divided if the number of clusters is more than 1
             if len(clusters) > 1:
                 # If so, we assume they are the endpoints of the left/right lanes
                 print(f'Two lanes ended on the {edge}')
+                # If it is a bottom edge, we record the starting position
+                if edge == 'bottom':
+                    print(clusters)
+                    # Pick the rightmost position of the left lane as its starting point
+                    leftlane_start_pos = clusters[0][-1]
+                    # And the leftmost position of the right lane as its starting point
+                    right_lane_start_pos = clusters[1][0]
+                elif edge == 'top':
+                    # If the edge is the top, we record the ending point for lane
+                    # Pick the leftmost position of the left lane as its starting point
+                    leftlane_end_pos = clusters[0][0]
+                    # And the rightmost position of the right lane as its starting point
+                    right_lane_end_pos = clusters[1][-1]                    
+                # end if edge side
             else:
                 # We have exactly one lane line endpoints
                 print(f'One lane line ends on the {edge}')
             # end if endpoints
-        # end if top
+        # end if edge has clusters
     # end for endpoints
+
+    # Compute and output the angle, the 0 degree is set as the straight lane
+    # angle increases when leaning right and decreases when leaning left
+    # Equation: tan(theta) = Opposite (horizontal diff) / Adjacent (height)
+    #           theta = tan^-1 (Opposite (horizontal diff) / Adjacent (height))
+    opposite = leftlane_end_pos - leftlane_start_pos
+    adjacent = len(mask_matrix_copy)
+    print(f'Opposite: {opposite}\nAdjacent: {adjacent}')
+    leftlane_angle = math.atan(opposite / adjacent)
+    # Convert it to degrees
+    leftlane_angle = math.degrees(leftlane_angle)
+    print(f'Left lane angle: {leftlane_angle}')
+    # Repeat the steps for the right lane
+    opposite = right_lane_end_pos - right_lane_start_pos
+    adjacent = len(mask_matrix_copy)
+    print(f'Opposite: {opposite}\nAdjacent: {adjacent}')
+    rightlane_angle = math.atan(opposite / adjacent)
+    # Convert it to degrees
+    rightlane_angle = math.degrees(rightlane_angle)
+    print(f'Right lane angle: {rightlane_angle}')
+
+    # Return the computed results as a pair
+    return {leftlane_angle, rightlane_angle}
 # end def
 
 def main(mask_matrix):
+    print(len(mask_matrix))
     # First, make a copy of the mask to avoid the change of the original structure
     mask_matrix_copy = mask_matrix
     # Get the endpoints of the mask
     endpoints_info = endpoints(mask_matrix_copy)
     # Calculate the angle position
-    angle_positions = compute_angle(endpoints_info)
+    angle_positions = compute_angle(mask_matrix, endpoints_info)
 
     # Return the final results
     return angle_positions
