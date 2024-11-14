@@ -6,3 +6,7 @@ opencv-python==4.10.0.84
 scikit-learn==1.5.2
 torch==2.4.1
 tqdm==4.66.5
+pycodestyle==2.11.1
+pydocstyle==6.3.0
+pylint==3.0.3
+pytest==8.0.0

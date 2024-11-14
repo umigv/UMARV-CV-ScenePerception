@@ -3,9 +3,9 @@ Take in a numpy 2D array as a mask, and then output the turning angle
 
 Author(s): Daniel X He <xinzhouh@umich.edu>
 Version: 1.0.0
-NOTE: This version works on the trivial case, where two lanes always starting from the bottom AND ending on the top,
+Version Notes: This version works on the trivial case, where two lanes always starting from the bottom AND ending on the top,
       the next development aims to be able to figure out if the lane turned to the left/right.
-Edition: November 13, 2024
+Last Edit: November 14, 2024
 
 """
 import numpy as np
@@ -156,7 +156,7 @@ def compute_angle(mask_matrix, endpoints):
     print(f'Right lane angle: {rightlane_angle}')
 
     # Return the computed results as a pair
-    return {leftlane_angle, rightlane_angle}
+    return np.array([leftlane_angle, rightlane_angle], dtype=np.float64)
 # end def
 
 def main(mask_matrix):
