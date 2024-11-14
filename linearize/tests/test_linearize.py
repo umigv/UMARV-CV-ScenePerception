@@ -26,7 +26,7 @@ def test_simple_no_angle():
     assert np.array_equal(angle_positions, np.array([0.0, 0.0], dtype=np.float64))
 
 
-# End test simple
+# End test_simple_no_angle
 
 
 def test_simple_angle():
@@ -51,10 +51,10 @@ def test_simple_angle():
     assert angle_positions[1] == 0
 
 
-# End test simple
+# End test_simple_angle
 
 
-def test_large_mask():
+def test_large_mask_no_angle():
     """A simple test with the angle degree."""
     mask = np.array(
         [
@@ -91,4 +91,44 @@ def test_large_mask():
     assert math.isclose(angle_positions[1], 2.862, abs_tol=10**-3)
 
 
-# End test simple
+# End test_large_mask_no_angle
+
+
+def test_large_mask_angle():
+    """A simple test with the angle degree."""
+    mask = np.array(
+        [
+            [1, 1, 0, 0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0, 0, 1, 1],
+            [1, 1, 0, 0, 0, 0, 0, 1, 1],
+            [0, 1, 1, 0, 0, 0, 0, 1, 1],
+            [0, 1, 1, 0, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1],
+        ]
+    )
+    # First, make a copy of the mask to avoid the change of the original structure
+    mask_matrix_copy = mask
+    # Get the endpoints of the mask
+    endpoints_info = linearize.endpoints(mask_matrix_copy)
+    # Calculate the angle position
+    angle_positions = linearize.compute_angle(mask_matrix_copy, endpoints_info)
+    # Check if the angle degree is close enough
+    assert math.isclose(angle_positions[0], -8.530, abs_tol=10**-3)
+    assert math.isclose(angle_positions[1], 2.862, abs_tol=10**-3)
+
+
+# End test_large_mask_angle

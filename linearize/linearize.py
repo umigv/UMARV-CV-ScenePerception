@@ -8,28 +8,24 @@ Version Notes: This version works on the trivial case, where two lanes always st
 Last Edit: November 14, 2024
 
 """
+
 import numpy as np
 import math
 
 # Test data
 mask_matrix = np.array(
-    [
-        [1, 1, 0, 1],
-        [0, 1, 0, 1],
-        [0, 1, 0, 1],
-        [0, 1, 0, 1],
-        [0, 1, 0, 1],
-        [0, 1, 0, 1]
-    ])
+    [[1, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1]]
+)
+
 
 def split_by_discontinuity(lst, threshold=1):
     """Split the list if there is a discontinuity, helpful for later positional analysis."""
     if not lst:
         return []
-    
+
     # Initialize the first sublist
     sublists = [[lst[0]]]
-    
+
     for i in range(1, len(lst)):
         # Check if the difference between consecutive elements exceeds the threshold
         if abs(lst[i] - lst[i - 1]) > threshold:
@@ -38,8 +34,9 @@ def split_by_discontinuity(lst, threshold=1):
         else:
             # Append to the current sublist
             sublists[-1].append(lst[i])
-    
+
     return sublists
+
 
 def endpoints(mask_matrix):
     """Scan and extract the endpoints info on the edge."""
@@ -51,34 +48,34 @@ def endpoints(mask_matrix):
         # Iterate for each row
         # If the row number is 0, the one is on the top edge
         if positions[row][0] == 0:
-            if edge_ones.get('top') is not None:
+            if edge_ones.get("top") is not None:
                 # We save the horizontal edge '1' position by their col index
-                edge_ones['top'].append(int(positions[row][1]))
+                edge_ones["top"].append(int(positions[row][1]))
             else:
-                edge_ones['top'] = []
-                edge_ones['top'].append(int(positions[row][1]))
+                edge_ones["top"] = []
+                edge_ones["top"].append(int(positions[row][1]))
         # If the col number is 0, the one is on the left edge
         if positions[row][1] == 0:
-            if edge_ones.get('left') is not None:
+            if edge_ones.get("left") is not None:
                 # We save the vertical edge 1 position by their row index
-                edge_ones['left'].append(int(positions[row][0]))
+                edge_ones["left"].append(int(positions[row][0]))
             else:
-                edge_ones['left'] = []
-                edge_ones['left'].append(int(positions[row][0]))
+                edge_ones["left"] = []
+                edge_ones["left"].append(int(positions[row][0]))
         # If the row number is len(mask_matrix) - 1, the one is on the bottom edge
         if positions[row][0] == len(mask_matrix) - 1:
-            if edge_ones.get('bottom') is not None:
-                edge_ones['bottom'].append(int(positions[row][1]))
+            if edge_ones.get("bottom") is not None:
+                edge_ones["bottom"].append(int(positions[row][1]))
             else:
-                edge_ones['bottom'] = []
-                edge_ones['bottom'].append(int(positions[row][1]))
+                edge_ones["bottom"] = []
+                edge_ones["bottom"].append(int(positions[row][1]))
         # If the row number is len(mask_matrix[0]) - 1, the one is on the right edge
         if positions[row][1] == len(mask_matrix[0]) - 1:
-            if edge_ones.get('right') is not None:
-                edge_ones['right'].append(int(positions[row][0]))
+            if edge_ones.get("right") is not None:
+                edge_ones["right"].append(int(positions[row][0]))
             else:
-                edge_ones['right'] = []
-                edge_ones['right'].append(int(positions[row][0]))
+                edge_ones["right"] = []
+                edge_ones["right"].append(int(positions[row][0]))
         # end if position
     # end for rows
 
@@ -93,7 +90,10 @@ def endpoints(mask_matrix):
 
     # Return the dictionary containing the endpoints info
     return edge_ones
+
+
 # end def
+
 
 def compute_angle(mask_matrix, endpoints):
     # Make a copy of the data structure to avoid accidental modification
@@ -113,24 +113,24 @@ def compute_angle(mask_matrix, endpoints):
             # Check if it is divided, it is considered as divided if the number of clusters is more than 1
             if len(clusters) > 1:
                 # If so, we assume they are the endpoints of the left/right lanes
-                print(f'Two lanes ended on the {edge}')
+                print(f"Two lanes ended on the {edge}")
                 # If it is a bottom edge, we record the starting position
-                if edge == 'bottom':
+                if edge == "bottom":
                     print(clusters)
                     # Pick the rightmost position of the left lane as its starting point
                     leftlane_start_pos = clusters[0][-1]
                     # And the leftmost position of the right lane as its starting point
                     right_lane_start_pos = clusters[1][0]
-                elif edge == 'top':
+                elif edge == "top":
                     # If the edge is the top, we record the ending point for lane
                     # Pick the leftmost position of the left lane as its starting point
                     leftlane_end_pos = clusters[0][0]
                     # And the rightmost position of the right lane as its starting point
-                    right_lane_end_pos = clusters[1][-1]                    
+                    right_lane_end_pos = clusters[1][-1]
                 # end if edge side
             else:
                 # We have exactly one lane line endpoints
-                print(f'One lane line ends on the {edge}')
+                print(f"One lane line ends on the {edge}")
             # end if endpoints
         # end if edge has clusters
     # end for endpoints
@@ -141,23 +141,26 @@ def compute_angle(mask_matrix, endpoints):
     #           theta = tan^-1 (Opposite (horizontal diff) / Adjacent (height))
     opposite = leftlane_end_pos - leftlane_start_pos
     adjacent = len(mask_matrix_copy)
-    print(f'Opposite: {opposite}\nAdjacent: {adjacent}')
+    print(f"Opposite: {opposite}\nAdjacent: {adjacent}")
     leftlane_angle = math.atan(opposite / adjacent)
     # Convert it to degrees
     leftlane_angle = math.degrees(leftlane_angle)
-    print(f'Left lane angle: {leftlane_angle}')
+    print(f"Left lane angle: {leftlane_angle}")
     # Repeat the steps for the right lane
     opposite = right_lane_end_pos - right_lane_start_pos
     adjacent = len(mask_matrix_copy)
-    print(f'Opposite: {opposite}\nAdjacent: {adjacent}')
+    print(f"Opposite: {opposite}\nAdjacent: {adjacent}")
     rightlane_angle = math.atan(opposite / adjacent)
     # Convert it to degrees
     rightlane_angle = math.degrees(rightlane_angle)
-    print(f'Right lane angle: {rightlane_angle}')
+    print(f"Right lane angle: {rightlane_angle}")
 
-    # Return the computed results as a pair
+    # Return the computed results as a numpy array of a size of 2
     return np.array([leftlane_angle, rightlane_angle], dtype=np.float64)
+
+
 # end def
+
 
 def main(mask_matrix):
     print(len(mask_matrix))
@@ -170,6 +173,7 @@ def main(mask_matrix):
 
     # Return the final results
     return angle_positions
+
 
 if __name__ == "__main__":
     main(mask_matrix)
