@@ -166,7 +166,7 @@ import random
 import os
 
 class Dataset_Class(Dataset):
-    def __init__(self, data, lookback, augment=False, device="cpu"):
+    def __init__(self, data, lookback, augment=False, device="cpu", label_input_threshold=0.1):
         """
         Initialize the dataset class for lane detection.
         
@@ -182,6 +182,8 @@ class Dataset_Class(Dataset):
         self.device = device
         self.data_size = 256
         self.dataset_dir = f"{os.getenv('ROOT_DIR')}/datasets"
+        
+        self.input_threshold = label_input_threshold
 
         # Initialize default transforms
         self.default_data_transform = transforms.Compose([
