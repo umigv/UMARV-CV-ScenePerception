@@ -120,73 +120,77 @@ class DecoderBlock(nn.Module):
 # uses an encoder-decoder architecture with skip connections, uses ConvLSTM for temporal processing,
 # and outputs segmentation maps with the background, cones, driveable area, and lane lines
 class scene_perception_model(nn.Module):
-  def __init__(self, lookback, input_channels = 3, num_classes = 4):
-    super(scene_perception_model, self).__init__()
-    
-    # calculating the total input channels needed based on lookback
-    self.total_input_channels = input_channels * (lookback['count'] + 1)
-    
-    # encoder
-    self.enc1 = EncoderBlock(self.total_input_channels, 64)
-    self.enc2 = EncoderBlock(64, 128)
-    self.enc3 = EncoderBlock(128, 256)
-    self.enc4 = EncoderBlock(256, 512)
-    
-    # bridge
-    self.bridge_conv = nn.Conv2d(512, 1024, kernel_size = 3, padding = 1)
-    self.bridge_bn = nn.BatchNorm2d(1024)
-    
-    # calling convLSTM for temoporal processing
-    self.convlstm = ConvLSTMCell(1024, 1024, kernel_size = 3)
-    
-    # decoder
-    self.dec4 = DecoderBlock(1024, 512)
-    self.dec3 = DecoderBlock(512, 256)
-    self.dec2 = DecoderBlock(256, 128)
-    self.dec1 = DecoderBlock(128, 64)
-    
-    # final classification
-    self.final_conv = nn.Conv2d(64, num_classes, kernel_size = 1)
-    self.relu = nn.ReLU(inplace = True)
-    
-  def forward(self, x):
-    batch_size = x.size(0)
-    
-    # encoder path with skip connections
-    x1, skip1 = self.enc1(x)
-    x2, skip2 = self.enc2(x1)
-    x3, skip3 = self.enc3(x2)
-    x4, skip4 = self.enc4(x3)
-    
-    # bridge
-    x = self.relu(self.bridge_bn(self.bridge_conv(x4)))
-    
-    # initializing the ConvLSTM state
-    h = torch.zeros(batch_size, 1024, x.size(2), x.size(3)).to(x.device)
-    c = torch.zeros(batch_size, 1024, x.size(2), x.size(3)).to(x.device)
-    
-    # processing ConvLSTM
-    h, c = self.convlstm(x, (h, c))
-    
-    # decoder path
-    x = self.dec4(h, skip4)
-    x = self.dec3(x, skip3)
-    x = self.dec2(x, skip2)
-    x = self.dec1(x, skip1)
-    
-    # final classification
-    x = self.final_conv(x)
-    
-    return x
-  
-  def init_weights(self):
-    for m in self.modules():
-        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-            nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.BatchNorm2d):
-            nn.init.constant_(m.weight, 1)
-            nn.init.constant_(m.bias, 0)
+    def __init__(self, lookback, input_channels=3, num_classes=4):
+        super(scene_perception_model, self).__init__()
+        
+        # First convolution takes 3 channels, not total_input_channels
+        self.enc1 = EncoderBlock(input_channels, 64)
+        self.enc2 = EncoderBlock(64, 128)
+        self.enc3 = EncoderBlock(128, 256)
+        self.enc4 = EncoderBlock(256, 512)
+        
+        # Bridge
+        self.bridge_conv = nn.Conv2d(512, 1024, kernel_size=3, padding=1)
+        self.bridge_bn = nn.BatchNorm2d(1024)
+        
+        # ConvLSTM for temporal processing
+        self.convlstm = ConvLSTMCell(1024, 1024, kernel_size=3)
+        
+        # Decoder
+        self.dec4 = DecoderBlock(1024, 512)
+        self.dec3 = DecoderBlock(512, 256)
+        self.dec2 = DecoderBlock(256, 128)
+        self.dec1 = DecoderBlock(128, 64)
+        
+        # Final classification
+        self.final_conv = nn.Conv2d(64, num_classes, kernel_size=1)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        # x shape: [batch_size, num_frames, channels, height, width]
+        batch_size = x.size(0)
+        num_frames = x.size(1)
+        
+        # Process each frame through encoder
+        encoded_frames = []
+        last_skip_connections = None
+        
+        for t in range(num_frames):
+            curr_frame = x[:, t]  # [batch_size, channels, height, width]
+            
+            # Encoder path
+            x1, skip1 = self.enc1(curr_frame)
+            x2, skip2 = self.enc2(x1)
+            x3, skip3 = self.enc3(x2)
+            x4, skip4 = self.enc4(x3)
+            
+            # Bridge
+            encoded = self.relu(self.bridge_bn(self.bridge_conv(x4)))
+            encoded_frames.append(encoded)
+            
+            # Store skip connections from last frame
+            last_skip_connections = (skip1, skip2, skip3, skip4)
+        
+        # Initialize ConvLSTM state
+        h = torch.zeros(batch_size, 1024, encoded.size(2), encoded.size(3)).to(x.device)
+        c = torch.zeros(batch_size, 1024, encoded.size(2), encoded.size(3)).to(x.device)
+        
+        # Process through ConvLSTM
+        for encoded in encoded_frames:
+            h, c = self.convlstm(encoded, (h, c))
+        
+        # Use last frame's skip connections for decoder
+        skip1, skip2, skip3, skip4 = last_skip_connections
+        
+        # Decoder path
+        x = self.dec4(h, skip4)
+        x = self.dec3(x, skip3)
+        x = self.dec2(x, skip2)
+        x = self.dec1(x, skip1)
+        
+        # Final classification
+        x = self.final_conv(x)
+        
+        return x
 
 # ======================================================================================== #

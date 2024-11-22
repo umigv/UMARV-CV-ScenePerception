@@ -208,12 +208,14 @@ def get_performance_metrics(conf_matrix, num_classes=4):
 
 def train_model(model, criterion, optimizer, train_dataloader):
     model.train()
-    _, data, label = next(iter(train_dataloader))
+    data_raw, data, label = next(iter(train_dataloader))
+    
     optimizer.zero_grad()
-    outputs = model(data)
+    outputs = model(data)  # data shape: [batch_size, num_frames, channels, height, width]
     loss = criterion(outputs, torch.argmax(label, dim=3))
     loss.backward()
     optimizer.step()
+    
     return loss.item()
 
 def validate_model(model, dataloader, num_classes=4):
