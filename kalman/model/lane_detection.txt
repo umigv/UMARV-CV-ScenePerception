@@ -1,0 +1,61 @@
+ultralytics.engine.results.Results object with attributes:
+
+boxes: ultralytics.engine.results.Boxes object
+keypoints: None
+masks: ultralytics.engine.results.Masks object
+names: {0: 'driveable'}
+obb: None
+orig_img: array([[[ 15,  11,  80],
+        [ 16,  12,  81],
+        [ 10,  12,  80],
+        ...,
+        [146, 150, 153],
+        [146, 150, 153],
+        [146, 150, 153]],
+
+       [[ 15,  11,  80],
+        [ 16,  12,  81],
+        [ 11,  13,  81],
+        ...,
+        [146, 150, 153],
+        [146, 150, 153],
+        [146, 150, 153]],
+
+       [[ 12,  11,  81],
+        [ 13,  12,  82],
+        [ 11,  12,  82],
+        ...,
+        [146, 150, 153],
+        [146, 150, 153],
+        [146, 150, 153]],
+
+       ...,
+
+       [[239, 230, 215],
+        [239, 230, 215],
+        [239, 230, 215],
+        ...,
+        [151, 151, 157],
+        [136, 136, 141],
+        [103, 103, 109]],
+
+       [[240, 231, 216],
+        [239, 230, 215],
+        [239, 230, 215],
+        ...,
+        [171, 171, 176],
+        [185, 185, 190],
+        [133, 133, 139]],
+
+       [[240, 231, 216],
+        [239, 230, 215],
+        [239, 230, 215],
+        ...,
+        [174, 174, 180],
+        [172, 172, 178],
+        [126, 126, 132]]], dtype=uint8)
+orig_shape: (720, 1280)
+path: 'image0.jpg'
+probs: None
+save_dir: '/Users/danielhe/Documents/dev_studio/um-engineering/fall2024/umarv/cv-nav-integration-testing/runs/segment/predict'
+speed: {'preprocess': 0.8230209350585938, 'inference': 54.5198917388916, 'postprocess': 0.5168914794921875}

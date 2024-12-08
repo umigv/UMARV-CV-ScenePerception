@@ -10,3 +10,4 @@ pycodestyle==2.11.1
 pydocstyle==6.3.0
 pylint==3.0.3
 pytest==8.0.0
+ultralytics
