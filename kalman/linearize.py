@@ -18,10 +18,11 @@ EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 
 # This import the data from the data storage, which produced bev.py
-mask_matrix = np.load('occupancy_grid.npy')
-#np.array(
+mask_matrix = np.load("occupancy_grid.npy")
+# np.array(
 #    [[1, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1]]
-#)
+# )
+
 
 def split_by_discontinuity(lst, threshold=1):
     """Split the list if there is a discontinuity, helpful for later positional analysis."""
@@ -115,7 +116,7 @@ def compute_angle(mask_matrix, endpoints):
     for edge, clusters in endpoints_copy.items():
         # edge for each edge, clusters for the lane line info of the edge
         # We check if each edge has the endpoints
-        if clusters and sys.argv[1] == '-s':
+        if clusters and sys.argv[1] == "-s":
             # If the edge has the endpoints
             # Check if it is divided, it is considered as divided if the number of clusters is more than 1
             if len(clusters) > 1:
@@ -123,11 +124,11 @@ def compute_angle(mask_matrix, endpoints):
                 print(f"Two lanes ended on the {edge}")
                 # If it is a bottom edge, we record the starting position
                 if edge == "bottom":
-                    print('clusters:')
+                    print("clusters:")
                     print(clusters)
                     # Pick the rightmost position of the left lane as its starting point
                     leftlane_start_pos = clusters[0][-1]
-                    print(f'leftlane_start_pos: {leftlane_start_pos}')
+                    print(f"leftlane_start_pos: {leftlane_start_pos}")
                     # And the leftmost position of the right lane as its starting point
                     right_lane_start_pos = clusters[1][0]
                 elif edge == "top":
@@ -144,8 +145,8 @@ def compute_angle(mask_matrix, endpoints):
         # end if edge has clusters
 
         # If we are in the occupancy grid mode
-        if clusters and sys.argv[1] == '-o':
-            print('Clusters length:')
+        if clusters and sys.argv[1] == "-o":
+            print("Clusters length:")
             print(len(clusters))
     # end for endpoints
 
@@ -182,12 +183,16 @@ def main(mask_matrix):
     # Simple input assumes the mask uses 1 to mark the LANE LINE.
     # Occupancy grid takes in the stored data which previously collected,
     # and it uses 1 to mark DRIVABLE AREA
-    if len(sys.argv) < 2 or (sys.argv[1] == '-h' or (sys.argv[1] != '-s' and sys.argv[1] != '-o')):
-        print('Usage: python linearize.py [-s|-o]')
-        print('Set the mode, -s for simple input, -o for occupancy grid, and -h for help')
-        print('Simple input assumes the mask uses 1 to mark the LANE LINE.')
-        print('Occupancy grid takes in the stored data which previously collected,')
-        print('and it uses 1 to mark DRIVABLE AREA')
+    if len(sys.argv) < 2 or (
+        sys.argv[1] == "-h" or (sys.argv[1] != "-s" and sys.argv[1] != "-o")
+    ):
+        print("Usage: python linearize.py [-s|-o]")
+        print(
+            "Set the mode, -s for simple input, -o for occupancy grid, and -h for help"
+        )
+        print("Simple input assumes the mask uses 1 to mark the LANE LINE.")
+        print("Occupancy grid takes in the stored data which previously collected,")
+        print("and it uses 1 to mark DRIVABLE AREA")
         sys.exit(EXIT_FAILURE)
     # End of argv is incorrect
 

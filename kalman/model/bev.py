@@ -192,7 +192,10 @@ def main():
         print(occupancy_grid_display)
         # Output to a file
         if first_time:
+            # The code below store the numpy array to a disk file
             np.save('occupancy_grid.npy', occupancy_grid_display)
+            # Only for the first iteration for the testing purpose, consider to remove
+            # upon the future development
             first_time = False
 
         transformed_image, bottomLeft, bottomRight, topRight, topLeft, maxWidth, maxHeight  = getBirdView(occupancy_grid_display, ZED)
