@@ -2,28 +2,41 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# Basic CNN model for scene perception
-class scene_perception_model(nn.Module):
-  def __init__(self, lookback):
-    super(scene_perception_model, self).__init__()
-    self.model = nn.Sequential(
-      nn.Conv2d( in_channels=3+3*lookback['count'], out_channels=20 , kernel_size=15 , padding=7 , stride=1 ),
-      nn.BatchNorm2d(20),
-      nn.LeakyReLU(),
-      nn.Conv2d( in_channels=20 , out_channels=20 , kernel_size=15 , padding=7 , stride=1 ),
-      nn.BatchNorm2d(20),
-      nn.LeakyReLU(),
-      nn.Conv2d( in_channels=20 , out_channels=20 , kernel_size=15 , padding=7 , stride=1 ),
-      nn.BatchNorm2d(20),
-      nn.LeakyReLU(),
-      nn.Conv2d( in_channels=20 , out_channels=10 , kernel_size=15 , padding=7 , stride=1 ),
-      nn.BatchNorm2d(10),
-      nn.LeakyReLU(),
-      nn.Conv2d( in_channels=10 , out_channels=4 , kernel_size=15 , padding=7 , stride=1 ),
-    )
-  def forward(self, input):
-    output = self.model(input)
-    return output
+# RNN model for scene perception
+class RNN_model(nn.Module):
+    def __init__(self, input_size: int, hidden_size: int, output_size: int) -> None:
+        super().__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.batch_size = batch_size
+        self.i2h = nn.Linear(input_size, hidden_size, bias=False)
+        self.h2h = nn.Linear(hidden_size, hidden_size)
+        self.h2o = nn.Linear(hidden_size, output_size)
+    def forward(self, x, hidden_state) -> tuple[torch.Tensor, torch.Tensor]
+
+# # Basic CNN model for scene perception
+# class scene_perception_model(nn.Module):
+#   def __init__(self, lookback):
+#     super(scene_perception_model, self).__init__()
+#     self.model = nn.Sequential(
+#       nn.Conv2d( in_channels=3+3*lookback['count'], out_channels=20 , kernel_size=15 , padding=7 , stride=1 ),
+#       nn.BatchNorm2d(20),
+#       nn.LeakyReLU(),
+#       nn.Conv2d( in_channels=20 , out_channels=20 , kernel_size=15 , padding=7 , stride=1 ),
+#       nn.BatchNorm2d(20),
+#       nn.LeakyReLU(),
+#       nn.Conv2d( in_channels=20 , out_channels=20 , kernel_size=15 , padding=7 , stride=1 ),
+#       nn.BatchNorm2d(20),
+#       nn.LeakyReLU(),
+#       nn.Conv2d( in_channels=20 , out_channels=10 , kernel_size=15 , padding=7 , stride=1 ),
+#       nn.BatchNorm2d(10),
+#       nn.LeakyReLU(),
+#       nn.Conv2d( in_channels=10 , out_channels=4 , kernel_size=15 , padding=7 , stride=1 ),
+#     )
+#   def forward(self, input):
+#     output = self.model(input)
+#     return output
 
 # # Basic U-Net model for scene perception
 # class scene_perception_model(nn.Module):
