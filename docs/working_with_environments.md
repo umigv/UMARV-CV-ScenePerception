@@ -4,9 +4,9 @@
 
 Google Colab is a great environment to work out of as it has free GPU access. These GPUs are limited and run out, so try to get your code working locally first, then hop on google colab to leverage the GPUs during training.
 
-Pre-requisite: Have a model already created and pushed to the branch. Tutorial here: [https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/main/docs/creating_models.md](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/main/docs/creating_models.md).
+Pre-requisite: **Have a model already created and pushed to the branch**. Tutorial here: [https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/creating_models.md](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/blob/main/docs/creating_models.md).
 
-1. Go to [https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/branches](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/branches).
+1. Go to [https://github.com/umigv/UMARV-CV-ScenePerception/branches](https://github.com/AwrodHaghiTabrizi/UMARV-CV-ScenePerception/branches).
 2. Select your branch.
 3. Navigate to your model foder.
 4. Navigate to the google colab notebook and click into it.
