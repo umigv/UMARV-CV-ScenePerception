@@ -3,3 +3,5 @@ env
 *.MOV
 *.mp4
 *.pt
+venv
+__pycache__
