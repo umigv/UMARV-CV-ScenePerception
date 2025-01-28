@@ -422,12 +422,12 @@ def upload_datasets_to_google_drive():
     from google.colab import drive
     drive.mount('/content/drive')
     source_directory = '/content/datasets/'
-    destination_directory = '/content/drive/My Drive/UMARV/ScenePerception/datasets/'
+    destination_directory = '/content/drive/MyDrive/UMARV/ScenePerception/datasets/'
     shutil.copytree(source_directory, destination_directory)
 
 def get_datasets_from_google_drive():
     from google.colab import drive
     drive.mount('/content/drive')
-    source_directory = '/content/drive/My Drive/UMARV/ScenePerception/datasets/'
+    source_directory = '/content/drive/MyDrive/UMARV/ScenePerception/datasets/'
     destination_directory = '/content/datasets/'
     shutil.copytree(source_directory, destination_directory)
