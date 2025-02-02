@@ -4,7 +4,7 @@ import numpy as np
 
 class hsv:
     def __init__(self):
-        self.image_path = 'data/000000.jpg'
+        self.image_path = 'data/curved_self_drive.jpg'
         self.image = cv2.imread(self.image_path)
         self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
         self.hsv_value = None
