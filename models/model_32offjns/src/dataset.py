@@ -114,10 +114,14 @@ class Dataset_Class(Dataset):
     label_drivable_area_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/drivable_area/{data_idx_str}.jpg"
     label_cones_dir = f"{self.dataset_dir}/{self.data[idx]['dataset']}/label/cones/{data_idx_str}.jpg"
 
-    label_background = torch.tensor(cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
-    label_lane_lines = torch.tensor(cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
-    label_drivable_area = torch.tensor(cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
-    label_cones = torch.tensor(cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    # label_background = torch.tensor(cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    # label_lane_lines = torch.tensor(cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    # label_drivable_area = torch.tensor(cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    # label_cones = torch.tensor(cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
+    label_background = torch.tensor(cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE) or np.zeros((256, 256), dtype=np.uint8), device=self.device, dtype=torch.float32)
+    label_lane_lines = torch.tensor(cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE) or np.zeros((256, 256), dtype=np.uint8), device=self.device, dtype=torch.float32)
+    label_drivable_area = torch.tensor(cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE) or np.zeros((256, 256), dtype=np.uint8), device=self.device, dtype=torch.float32)
+    label_cones = torch.tensor(cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE) or np.zeros((256, 256), dtype=np.uint8), device=self.device, dtype=torch.float32)
     
     label_shape = label_background.shape
     label = torch.zeros((label_shape[0], label_shape[1], 4), device=self.device, dtype=torch.long)
