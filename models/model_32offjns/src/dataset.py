@@ -119,22 +119,22 @@ class Dataset_Class(Dataset):
     # label_drivable_area = torch.tensor(cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
     # label_cones = torch.tensor(cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE), device=self.device, dtype=torch.float32)
     label_background = torch.tensor(
-        cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((256, 256), dtype=np.uint8),
+        cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_background_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((384, 640), dtype=np.uint8),
         device=self.device,
         dtype=torch.float32
     )
     label_lane_lines = torch.tensor(
-        cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((256, 256), dtype=np.uint8),
+        cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_lane_lines_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((384, 640), dtype=np.uint8),
         device=self.device,
         dtype=torch.float32
     )
     label_drivable_area = torch.tensor(
-        cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((256, 256), dtype=np.uint8),
+        cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_drivable_area_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((384, 640), dtype=np.uint8),
         device=self.device,
         dtype=torch.float32
     )
     label_cones = torch.tensor(
-        cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((256, 256), dtype=np.uint8),
+        cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE) if cv2.imread(label_cones_dir, cv2.IMREAD_GRAYSCALE) is not None else np.zeros((384, 640), dtype=np.uint8),
         device=self.device,
         dtype=torch.float32
     )
