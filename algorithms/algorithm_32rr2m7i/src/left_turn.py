@@ -76,8 +76,10 @@ def find_left_most_lane(mask, white_mask, final):
     if best_cnt is not None:
         for point in best_cnt:
             if point[0][1] > max_y:
+                # print(type(point[0][1]), point.shape)
                 y = point[0][1]
                 x = point[0][0]
+                max_y = y
             
     diff_x, diff_y = None, None
 
@@ -89,6 +91,8 @@ def find_left_most_lane(mask, white_mask, final):
         edge_white_x = x
         edge_white_y = y
         
+        cv2.circle(final, (x, y), 15, 255, -1)
+        
         x -= 150
         x = max(0, x)
         
@@ -96,10 +100,11 @@ def find_left_most_lane(mask, white_mask, final):
         
         while y < height and white_mask[y, x] != 255:
             y += 1
-            cv2.circle(final, (x, y), 50, 255, -1)
+            cv2.circle(final, (x, y), 3, 255, -1)
         
         diff_x, diff_y = find_slope(x, y, edge_white_x, edge_white_y)            
             
+        x, y = edge_white_x, edge_white_y
         diff_x //= 10
         diff_y //= 10
         x += diff_x * 2
@@ -108,7 +113,7 @@ def find_left_most_lane(mask, white_mask, final):
        
         
         while x < width and y < height and white_mask[y, x] == 0:
-            cv2.circle(final, (x, y), 10, 255, -1)
+            cv2.circle(final, (x, y), 5, 255, -1)
 
             x += diff_x #* 2
             y += diff_y #* 2
