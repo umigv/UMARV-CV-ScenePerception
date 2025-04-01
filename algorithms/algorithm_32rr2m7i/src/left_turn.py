@@ -3,7 +3,7 @@ import numpy as np
 
 
 class left_turn:
-    def init(self):
+    def __init__(self):
         self.last_diff_y = -3
         self.image = None
         self.hsv_image = None
@@ -18,12 +18,13 @@ class left_turn:
         self.diff_x = 15
         self.yellow_mask = None
         self.mask = None
+        self.yellow_found = False
 
     def find_slope(self, cur_x, cur_y, edge_white_x, edge_white_y):
-        diff_y = (edge_white_y - cur_y)
-        diff_x = (edge_white_x - cur_x)
+        self.diff_y = (edge_white_y - cur_y)
+        self.diff_x = (edge_white_x - cur_x)
 
-        return diff_x, diff_y
+        return self.diff_x, self.diff_y
 
     def update_mask(self):
         #defining the ranges for HSV values
@@ -58,8 +59,8 @@ class left_turn:
         # resized_mask = cv2.resize(final_mask, (640, 480))
         # cv2.imshow("result", result)
         
-        self.find_left_most_lane()     
-        cv2.imshow("mask", self.mask)
+        self.last_diff_y = self.find_left_most_lane()     
+        cv2.imshow("mask", self.final)
         
     
 
@@ -67,9 +68,9 @@ class left_turn:
     
     def find_left_most_lane(self):
         assert(self.mask.shape == self.white_mask.shape == self.final.shape)
-        contours, _ = cv2.findContours(self.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200 # Adjust based on noise size
-        hsv_lanes = np.zeros_like(self.mask) # New occupancy grid that is blank
+        # hsv_lanes = np.zeros_like(self.mask) # New occupancy grid that is blank
         height, width = self.white_mask.shape
         
         best_cnt = None
@@ -82,7 +83,7 @@ class left_turn:
                     max_y = cnt[0, 0, 1]
                     best_cnt = cnt
                 
-                cv2.drawContours(hsv_lanes, [cnt], -1, 255, thickness=cv2.FILLED)
+                # cv2.drawContours(hsv_lanes, [cnt], -1, 255, thickness=cv2.FILLED)
         
         max_y = 0
         x, y = None, None
@@ -95,11 +96,16 @@ class left_turn:
                 
         self.diff_x, self.diff_y = None, None
 
+        if self.yellow_found is False:
+            #right line
+            cv2.line(self.final, (int(0.8 * width), 0), (width, height), 255, 10)
+            #left line
+            cv2.line(self.final, (0, int(0.5*height)), (int(0.125*width), height), 255, 10)
         if y is not None:
             # print(x, y)
             
             # cv2.circle(final, (x, y), 100, 255, -1)
-            
+
             edge_white_x = x
             edge_white_y = y
             
@@ -114,7 +120,8 @@ class left_turn:
                 y += 1
                 # cv2.circle(self.final, (x, y), 3, 255, -1)
             
-            self.diff_x, self.diff_y = self.find_slope(x, y, edge_white_x, edge_white_y)            
+            self.diff_x, self.diff_y = self.find_slope(x, y, edge_white_x, edge_white_y)    
+
                 
             x, y = edge_white_x, edge_white_y
             self.diff_x //= 10
@@ -130,18 +137,31 @@ class left_turn:
             
             
             
-        
+
             
-            while x > 0 and y > 0 and x < width and y < height and self.white_mask[y, x] == 0:
+            while x > 0 and y > 0 and x < width - self.diff_x and y < height - self.diff_y and self.white_mask[y, x] == 0:
                 # cv2.circle(self.final, (x, y), 5, 255, -1)
 
                 x += self.diff_x #* 2
                 y += self.diff_y #* 2
                 
-            if(abs(self.last_diff_y - self.diff_y) < 10):
+            if(self.diff_y > -40 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
+                self.yellow_found = True
                 cv2.line(self.final, (x, y), (width, height), 255, 10)
+                cv2.line(self.final, (0, height), (edge_white_x, edge_white_y), 255, 10)
                 
             return self.diff_y
+        
+        # if self.yellow_found is False:
+        #     #right line
+        #     cv2.line(self.final, (int(0.8 * width), 0), (width, height), 255, 10)
+        #     #left line
+        #     cv2.line(self.final, (0, int(0.5*height)), (int(0.125*width), height), 255, 10)
+        
+        else:
+            return -3
+        
+        
                 
             
             
