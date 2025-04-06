@@ -11,6 +11,9 @@ class right_turn:
         self.mask = None
         self.resized_mask = None
         self.final = None
+        self.height = None
+        self.width = None
+        self.cnt_diff = None
 
     def update_mask(self):
         #defining the ranges for HSV values
@@ -44,41 +47,54 @@ class right_turn:
         
         
     def find_left_most_lane(self):
-        contours, _ = cv2.findContours(self.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200 # Adjust based on noise size
-        hsv_lanes = np.zeros_like(self.mask) #new occupancy grid that is blank
+        hsv_lanes = np.zeros_like(self.yellow_mask) #new occupancy grid that is blank
         
         min_x = float("inf")
         best_cnt = None
         max_y = 0
         
         for cnt in contours: # looping through contours
+            # print(f"contour area {cv2.contourArea(cnt)}")
+            # print(f"Min area {min_area}")
             if cv2.contourArea(cnt) > min_area:
                 #find left most lane
-                print(cnt[0, 0, 0]) # x-values of each cnt
-                print(cnt[0, 0, 1]) # y-values of each cnt
+                # print(cnt[0, 0, 0]) # x-values of each cnt
+                # print(cnt[0, 0, 1]) # y-values of each cnt
                 
-                if cnt[0, 0, 1] > max_y:
+                # self.cnt_diff stores the previous cnt diff
+                # break if prev cnt diff is negative and current cnt diff is positive
+                # assign self.cnt_diff to the current cnt diff
+                current_cnt_diff = cnt[0, 0, 0] - cnt[0, 0, 1]
+                print(current_cnt_diff)
+                if self.cnt_diff is not None and self.cnt_diff > 0 and current_cnt_diff < 0 and current_cnt_diff < -450:
+                    #break out of this
+                    break
+                self.cnt_diff = cnt[0, 0, 0] - cnt[0, 0, 1]
+                    
+                # print(cnt[0,0,0]- cnt[0,0,1])
+                
+                if cnt[0, 0, 0] < min_x:
                     max_y = cnt[0, 0, 1]
                     min_x = cnt[0, 0, 0]
                     best_cnt = (min_x, max_y)
                 
                 cv2.drawContours(hsv_lanes, [cnt], -1, 255, thickness=cv2.FILLED)
-                cv2.circle(self.final, best_cnt, 50, 255, -1)
-                
-                cv2.line(self.final, (0, best_cnt[1]), (0, self.mask.shape[0]), 255, 10)
-                cv2.line(self.final, (best_cnt[0], best_cnt[1]), (0, best_cnt[1]), 255, 10)
+                cv2.circle(self.mask, best_cnt, 50, 255, -1)
+                cv2.line(self.mask, (0, best_cnt[1]), (0, self.mask.shape[0]), 255, 10)
+                cv2.line(self.mask, (best_cnt[0], best_cnt[1]), (0, best_cnt[1]), 255, 10)
         
     # Make main function that gets the image path and passes it into update mask as an HSV converted image
     # use cv2.imread(filename) then put the output into cv2.cvtcolor(image, cv2.RBGTOHSV)
 
     def run(self):
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture('data/right_turn.mp4')
         while cap.isOpened():
             ret, self.image = cap.read()
             if ret:
-                height, width, _ = self.image.shape
-                right_half_vid = self.image[:, width // 2:]
+                self.height, self.width, _ = self.image.shape
+                right_half_vid = self.image[:, self.width // 2:]
                 self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
             
                 self.update_mask()
