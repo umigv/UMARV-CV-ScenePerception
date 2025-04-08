@@ -12,19 +12,6 @@ class hsv:
         self.final = None
         self.video_path = video_path
         self.load_hsv_values()
-        # self.hsv_image = None
-        # self.h_upper = None
-        # self.h_lower = None
-        # self.s_upper = None
-        # self.s_lower = None
-        # self.v_upper = None
-        # self.v_lower = None
-        # self.setup = False
-        # self.image = None
-        # self.final = None
-        # self.video_path = video_path
-        # self.load_hsv_values()
-        
         
     def load_hsv_values(self):
         if os.path.exists('hsv_values.json'):

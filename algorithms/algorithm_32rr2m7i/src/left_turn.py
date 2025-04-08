@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from hsv import hsv
 
 
 class left_turn:
@@ -11,14 +12,16 @@ class left_turn:
         self.y = 0
         self.edge_white_x = 0
         self.edge_white_y = 0
-        self.mask = None
+
         self.white_mask = None
         self.final = None
         self.diff_y = -3
         self.diff_x = 15
         self.yellow_mask = None
-        self.mask = None
+
         self.yellow_found = False
+        self.hsv_obj = None
+        
 
     def find_slope(self, cur_x, cur_y, edge_white_x, edge_white_y):
         self.diff_y = (edge_white_y - cur_y)
@@ -28,46 +31,51 @@ class left_turn:
 
     def update_mask(self):
         #defining the ranges for HSV values
-        yellow_lower_bound = np.array([0, 39, 227])
-        yellow_upper_bound = np.array([93, 255, 255])
-        white_lower_bound = np.array([0, 0, 201])
-        white_upper_bound = np.array([179, 70, 255])
+        self.final, dict = self.hsv_obj.get_mask(self.image)
         
-        
-        self.white_mask = cv2.inRange(self.hsv_image, white_lower_bound, white_upper_bound)
-        self.yellow_mask = cv2.inRange(self.hsv_image, yellow_lower_bound, yellow_upper_bound) # Return a mask of HSV values within the range we specified
-        
-        self.white_mask = cv2.resize(self.white_mask, (self.image.shape[1], self.image.shape[0]))
-        self.yellow_mask = cv2.resize(self.yellow_mask, (self.image.shape[1], self.image.shape[0]))
-
-        #some post processing stuff to help it look smoother
-        self.white_mask = cv2.erode(self.white_mask, None, iterations=2)
-        self.white_mask = cv2.dilate(self.white_mask, None, iterations=2)
-
-        self.yellow_mask = cv2.erode(self.yellow_mask, None, iterations=2)
-        self.yellow_mask = cv2.dilate(self.yellow_mask, None, iterations=2)
-        
-        self.mask = cv2.bitwise_or(self.yellow_mask, self.white_mask)
-        contours, _ = cv2.findContours(self.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        min_area = 200 # Adjust based on noise size
-        self.final = np.zeros_like(self.mask)
-        for cnt in contours:
-            if cv2.contourArea(cnt) > min_area:
-                cv2.drawContours(self.final, [cnt], -1, 255, thickness=cv2.FILLED)
-        
+        self.white_mask = dict["white"]
+        self.yellow_mask = dict["yellow"]
         # result = cv2.bitwise_and(image, image, mask=mask) #applies the mask to the base image so only masked parts of the image are shown
         # resized_mask = cv2.resize(final_mask, (640, 480))
         # cv2.imshow("result", result)
         
-        self.last_diff_y = self.find_left_most_lane()     
+        self.last_diff_y = self.find_left_most_lane()
         cv2.imshow("mask", self.final)
         
     
-
+    def find_center_of_lane(self, start, end):
+        assert(self.white_mask.shape == self.final.shape)
+        # start = (0, height)
+        # end = (edge_white_x, edge_white_y)
+        x1, y1 = start[0], start[1]
+        x2, y2 = end[0], end[1]
+        
+        rise = y2 - y1
+        run = x2 - x1
+        waypoints = []
+        curr_x, curr_y = x1, y1
+        while curr_x < x2 and curr_y < y2:
+            # find normal to line at curr_x, curr_y
+            # keep going until you intercept the other lane line (use white mask, stop when you hit white)
+            # find centroid, and append to waypoints
+            normal = (-run, rise)
+            temp_x, temp_y = curr_x, curr_y
+            while(temp_x < x2 and temp_y < y2 and self.white_mask[temp_y, temp_x] == 0):
+                temp_x += normal[0]
+                temp_y += normal[1]
+            centroid = ((curr_x+temp_x)//2, (curr_y+temp_y)//2)
+            cv2.circle(self.final, centroid, 10, 255, -1)
+            waypoints.append(centroid)
+            curr_x += 5*run
+            curr_y += 5*rise
+            print(waypoints)
+        
+        return waypoints
+    
     
     
     def find_left_most_lane(self):
-        assert(self.mask.shape == self.white_mask.shape == self.final.shape)
+        assert(self.white_mask.shape == self.final.shape)
         contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200 # Adjust based on noise size
         # hsv_lanes = np.zeros_like(self.mask) # New occupancy grid that is blank
@@ -98,9 +106,13 @@ class left_turn:
 
         if self.yellow_found is False:
             #right line
+            point1 = (0, int(0.5*height))
+            point2 = (int(0.125*width), height)
             cv2.line(self.final, (int(0.8 * width), 0), (width, height), 255, 10)
             #left line
-            cv2.line(self.final, (0, int(0.5*height)), (int(0.125*width), height), 255, 10)
+            cv2.line(self.final, point1, point2, 255, 10)
+            
+            self.find_center_of_lane(point1, point2)
         if y is not None:
             # print(x, y)
             
@@ -147,9 +159,11 @@ class left_turn:
                 
             if(self.diff_y > -40 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
                 self.yellow_found = True
+                point1 = (0, height)
+                point2 = (edge_white_x, edge_white_y)
                 cv2.line(self.final, (x, y), (width, height), 255, 10)
-                cv2.line(self.final, (0, height), (edge_white_x, edge_white_y), 255, 10)
-                
+                cv2.line(self.final, point1, point2, 255, 10)
+                self.find_center_of_lane(point1, point2)
             return self.diff_y
         
         # if self.yellow_found is False:
@@ -180,14 +194,14 @@ class left_turn:
 
     def run(self):
         cap = cv2.VideoCapture('data/trimmed.mov')
+        self.hsv_obj = hsv('data/trimmed.mov')
+        
         while cap.isOpened():
             ret, self.image = cap.read()
             if ret:
                 self.image = self.adjust_gamma(self.image)
                 self.height, self.width, _ = self.image.shape
                 
-                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-
                 self.update_mask()
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break

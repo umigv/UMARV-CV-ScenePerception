@@ -38,7 +38,7 @@ class right_turn:
         
         self.mask = cv2.bitwise_or(self.yellow_mask, self.white_mask)
         
-        self.find_left_most_lane()
+        self.find_right_most_lane()
         
         # result = cv2.bitwise_and(image, image, mask=mask) #applies the mask to the base image so only masked parts of the image are shown
         self.resized_mask = cv2.resize(self.mask, (640, 480))
@@ -46,7 +46,7 @@ class right_turn:
         cv2.imshow("mask", self.resized_mask)
         
         
-    def find_left_most_lane(self):
+    def find_right_most_lane(self):
         contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200 # Adjust based on noise size
         hsv_lanes = np.zeros_like(self.yellow_mask) #new occupancy grid that is blank

@@ -5,6 +5,8 @@ from math import radians, cos, floor
 from ultralytics import YOLO
 import math
 import time
+from left_turn import left_turn
+from right_turn import right_turn
 
 lane_model = YOLO("april9120sLLO.pt")
 hole_model = YOLO('potholesonly100epochs.pt')
@@ -70,7 +72,8 @@ def getBirdView(image, cp):
     src_quad = cp.src_quad(rows, columns)
     dst_quad = cp.dst_quad(rows, columns, min_angle, max_angle)
     warped, bottomLeft, bottomRight, topRight, topLeft = perspective(image, src_quad, dst_quad, cp)
-    return warped, bottomLeft, bottomRight, topRight, topLeft, cp.maxWidth, cp.maxHeight
+    return warped, bottomLeft, bottomRight, topRight, topLeft, cp.maxWidth, cp.maxHeight 
+    # transformed occ grid, coordinates of the occ grid
 
 def perspective(image, src_quad, dst_quad, cp):
     bottomLeft, bottomRight, topLeft, topRight = dst_quad
@@ -113,45 +116,71 @@ def apply_custom_color_map(image):
     return image_mapped
 
 
-def get_occupancy_grid(frame):
+# def get_occupancy_grid(frame):
         
-        r_lane = lane_model.predict(frame, conf=0.5, device='cpu')[0]
-        # Save a sample detection to a file
-
-        save = True
-        if save:
-            with open("lane_detection.txt", "w") as f:
-                f.write(str(r_lane))
-
-
-        # lane_annotated_frame = r_lane.plot()
-        image_width, image_height = frame.shape[1], frame.shape[0]
+#         r_lane = lane_model.predict(frame, conf=0.5, device='cpu')[0]
         
-        occupancy_grid = np.zeros((image_height, image_width))
-        r_hole = hole_model.predict(frame, conf=0.25, device='cpu')[0]
-        time_of_frame = 0
-        if r_lane.masks is not None:
-            if(len(r_lane.masks.xy) != 0):
-                with open("lane_detection_xy.txt", "w") as f:
-                    f.write(str(r_lane.masks.xy))
-                segment = r_lane.masks.xy[0]
-                segment_array = np.array([segment], dtype=np.int32)
-                cv2.fillPoly(occupancy_grid, [segment_array], color=(255, 0, 0))
-                time_of_frame = time.time()
+#         # Save a sample detection to a file
 
-        if r_hole.boxes is not None:
-            for segment in r_hole.boxes.xyxyn:
-                x_min, y_min, x_max, y_max = segment
-                vertices = np.array([[x_min*image_width, y_min*image_height], 
-                                    [x_max*image_width, y_min*image_height], 
-                                    [x_max*image_width, y_max*image_height], 
-                                    [x_min*image_width, y_max*image_height]], dtype=np.int32)
-                cv2.fillPoly(occupancy_grid, [vertices], color=(0, 0, 0))
+#         save = True
+#         if save:
+#             with open("lane_detection.txt", "w") as f:
+#                 f.write(str(r_lane))
 
-        buffer_area = np.sum(occupancy_grid)//255
-        buffer_time = math.exp(-buffer_area/(image_width*image_height)-0.7)
-        return occupancy_grid, buffer_time, time_of_frame
 
+#         # lane_annotated_frame = r_lane.plot()
+#         image_width, image_height = frame.shape[1], frame.shape[0]
+        
+#         occupancy_grid = np.zeros((image_height, image_width))
+#         r_hole = hole_model.predict(frame, conf=0.25, device='cpu')[0]
+#         time_of_frame = 0
+#         if r_lane.masks is not None:
+#             if(len(r_lane.masks.xy) != 0):
+#                 with open("lane_detection_xy.txt", "w") as f:
+#                     f.write(str(r_lane.masks.xy))
+#                 segment = r_lane.masks.xy[0]
+#                 segment_array = np.array([segment], dtype=np.int32)
+#                 cv2.fillPoly(occupancy_grid, [segment_array], color=(255, 0, 0))
+#                 time_of_frame = time.time()
+
+#         if r_hole.boxes is not None:
+#             for segment in r_hole.boxes.xyxyn:
+#                 x_min, y_min, x_max, y_max = segment
+#                 vertices = np.array([[x_min*image_width, y_min*image_height], 
+#                                     [x_max*image_width, y_min*image_height], 
+#                                     [x_max*image_width, y_max*image_height], 
+#                                     [x_min*image_width, y_max*image_height]], dtype=np.int32)
+#                 cv2.fillPoly(occupancy_grid, [vertices], color=(0, 0, 0))
+
+#         buffer_area = np.sum(occupancy_grid)//255
+#         buffer_time = math.exp(-buffer_area/(image_width*image_height)-0.7)
+#         return occupancy_grid, buffer_time, time_of_frame
+
+
+
+
+
+def transformed_image(og_occupancy_grid, bev_occupancy_grid):
+    x, y = None
+    # 1. draw left and right turn lines on the occupancy grid using left or right turn class
+    
+    left_turn_obj = left_turn()
+    
+    
+    
+    
+    #set white_mask
+    #set yellow_mask
+    
+    diff_y, final = left_turn_obj.find_left_most_lane()
+    
+    # 2. find the center lines of the two drawn lines within the occupancy grid
+    
+    
+    
+    
+    
+    return x, y
 
 def main():
 
@@ -215,7 +244,21 @@ def main():
 
         transformed_image = np.where(transformed_image==255, 1, transformed_image)
         transformed_image = np.where((transformed_image != 0) & (transformed_image != 1) & (transformed_image != -1), -1, transformed_image)
-        #print(bottomLeft, bottomRight)
+        
+        
+        # transfomored_image is the array that we care about
+        # define (x,y) for the robot to travel to
+        
+        
+        find_waypoint(transformed_image)
+        
+        
+        
+        
+        
+        
+        
+       
 
 
         # np.savetxt('mask.txt', mask, fmt='%d')
