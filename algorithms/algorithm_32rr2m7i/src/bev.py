@@ -1,15 +1,9 @@
 import cv2
-from cv2 import cuda
 import numpy as np
-from math import radians, cos, floor
-from ultralytics import YOLO
-import math
-import time
-from left_turn import left_turn
-from right_turn import right_turn
+from math import radians, cos
+from hsv import hsv
 
-lane_model = YOLO("april9120sLLO.pt")
-hole_model = YOLO('potholesonly100epochs.pt')
+hsv_obj = hsv('data/compvid.mp4')
 
 class CameraProperties(object):
     functional_limit = radians(70.0)
@@ -90,6 +84,7 @@ def perspective(image, src_quad, dst_quad, cp):
     cp.maxHeight = int(maxHeight1)
     print("Matrix")
     print(image.shape)
+    print(type(image))
     warped = cv2.warpPerspective(image, matrix1, (cp.maxWidth, cp.maxHeight))
 
 
@@ -115,106 +110,28 @@ def apply_custom_color_map(image):
 
     return image_mapped
 
-
-# def get_occupancy_grid(frame):
-        
-#         r_lane = lane_model.predict(frame, conf=0.5, device='cpu')[0]
-        
-#         # Save a sample detection to a file
-
-#         save = True
-#         if save:
-#             with open("lane_detection.txt", "w") as f:
-#                 f.write(str(r_lane))
-
-
-#         # lane_annotated_frame = r_lane.plot()
-#         image_width, image_height = frame.shape[1], frame.shape[0]
-        
-#         occupancy_grid = np.zeros((image_height, image_width))
-#         r_hole = hole_model.predict(frame, conf=0.25, device='cpu')[0]
-#         time_of_frame = 0
-#         if r_lane.masks is not None:
-#             if(len(r_lane.masks.xy) != 0):
-#                 with open("lane_detection_xy.txt", "w") as f:
-#                     f.write(str(r_lane.masks.xy))
-#                 segment = r_lane.masks.xy[0]
-#                 segment_array = np.array([segment], dtype=np.int32)
-#                 cv2.fillPoly(occupancy_grid, [segment_array], color=(255, 0, 0))
-#                 time_of_frame = time.time()
-
-#         if r_hole.boxes is not None:
-#             for segment in r_hole.boxes.xyxyn:
-#                 x_min, y_min, x_max, y_max = segment
-#                 vertices = np.array([[x_min*image_width, y_min*image_height], 
-#                                     [x_max*image_width, y_min*image_height], 
-#                                     [x_max*image_width, y_max*image_height], 
-#                                     [x_min*image_width, y_max*image_height]], dtype=np.int32)
-#                 cv2.fillPoly(occupancy_grid, [vertices], color=(0, 0, 0))
-
-#         buffer_area = np.sum(occupancy_grid)//255
-#         buffer_time = math.exp(-buffer_area/(image_width*image_height)-0.7)
-#         return occupancy_grid, buffer_time, time_of_frame
-
-
-
-
-
-def transformed_image(og_occupancy_grid, bev_occupancy_grid):
-    x, y = None
-    # 1. draw left and right turn lines on the occupancy grid using left or right turn class
-    
-    left_turn_obj = left_turn()
-    
-    
-    
-    
-    #set white_mask
-    #set yellow_mask
-    
-    diff_y, final = left_turn_obj.find_left_most_lane()
-    
-    # 2. find the center lines of the two drawn lines within the occupancy grid
-    
-    
-    
-    
-    
-    return x, y
+def get_occupancy_grid(frame):
+    combined, dict = hsv_obj.get_mask(frame)
+    return combined
 
 def main():
 
     # ZED = CameraProperties(54, 68.0, 101.0, 68.0)
-    ZED = CameraProperties(64, 68.0, 101.0, 60.0)
+    ZED = CameraProperties(64, 68.0, 101.0, 55.0)
 
-    cap = cv2.VideoCapture('IMG_7493.mp4')
+    cap = cv2.VideoCapture('data/compvid.mp4')
 
     out = None
     
-    curr_time = time.time()
-    memory_buffer = np.full((1280, 720), 255).astype(np.uint8)
     while True:
         # Read in an image:
         ret, frame = cap.read()
         if not ret:
             break
         frame = cv2.resize(frame, (1280, 720))
-        occupancy_grid_display, buffer_time, time_of_frame = get_occupancy_grid(frame)
+        occupancy_grid_display = get_occupancy_grid(frame)
         occ = occupancy_grid_display.astype(np.uint8)
         overlay = cv2.addWeighted(frame, 1, cv2.cvtColor(occ, cv2.COLOR_GRAY2BGR), 0.5, 0)
-        total = np.sum(occupancy_grid_display)
-        curr_time = time.time()
-        if total == 0:
-            if curr_time - time_of_frame < buffer_time:
-                occupancy_grid_display = memory_buffer
-            else:
-                occupancy_grid_display.fill(255)
-        else:
-            memory_buffer = occupancy_grid_display
-
-        #cv2.imshow('Original Video', overlay)
-            
-        
 
         transformed_image, bottomLeft, bottomRight, topRight, topLeft, maxWidth, maxHeight  = getBirdView(occupancy_grid_display, ZED)
 
@@ -244,25 +161,6 @@ def main():
 
         transformed_image = np.where(transformed_image==255, 1, transformed_image)
         transformed_image = np.where((transformed_image != 0) & (transformed_image != 1) & (transformed_image != -1), -1, transformed_image)
-        
-        
-        # transfomored_image is the array that we care about
-        # define (x,y) for the robot to travel to
-        
-        
-        find_waypoint(transformed_image)
-        
-        
-        
-        
-        
-        
-        
-       
-
-
-        # np.savetxt('mask.txt', mask, fmt='%d')
-        # np.savetxt('transformed_image.txt', transformed_image, fmt='%d')
 
         transformed_color = apply_custom_color_map(transformed_image)
         #cv2.imshow('Occupancy', transformed_color)

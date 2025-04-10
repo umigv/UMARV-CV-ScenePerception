@@ -195,8 +195,9 @@ class hsv:
                 # If the video ends, reset to the beginning
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
-
-            self.hsv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            self.image = frame
+            self.adjust_gamma()
+            self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
             mask, dict = self.update_mask()
 
             cv2.imshow('Video', frame)
@@ -219,7 +220,7 @@ class hsv:
             upper_bound = np.array([bounds['h_upper'], bounds['s_upper'], bounds['v_upper']])
             mask = cv2.inRange(self.hsv_image, lower_bound, upper_bound)
             mask = cv2.erode(mask, None, iterations=2)
-            mask = cv2.dilate(mask, None, iterations=2)
+            mask = cv2.dilate(mask, None, iterations=4)
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             min_area = 200 # Adjust based on noise size
             final = np.zeros_like(mask)
@@ -240,5 +241,5 @@ class hsv:
     def get_mask(self, frame):
         self.image = frame
         self.adjust_gamma()
-        self.hsv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
         return self.update_mask()
