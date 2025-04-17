@@ -12,15 +12,17 @@ class left_turn:
         self.y = 0
         self.edge_white_x = 0
         self.edge_white_y = 0
-
         self.white_mask = None
         self.final = None
         self.diff_y = -3
         self.diff_x = 15
         self.yellow_mask = None
-
         self.yellow_found = False
         self.hsv_obj = None
+        self.centroid = (None, None)
+        self.width = None
+        self.done = False
+        self.height = None
         
 
     def find_slope(self, cur_x, cur_y, edge_white_x, edge_white_y):
@@ -39,36 +41,44 @@ class left_turn:
         # resized_mask = cv2.resize(final_mask, (640, 480))
         # cv2.imshow("result", result)
         
-        self.last_diff_y = self.find_left_most_lane()
+        if(self.done == False):
+            self.last_diff_y = self.find_left_most_lane()
+        else:
+            self.centroid = (self.width//2, 40)
+        self.find_center_of_lane()
         cv2.imshow("mask", self.final)
         
     
-    def find_center_of_lane(self, start, end):
+    def find_center_of_lane(self):
+        if(self.centroid == (None, None)):
+            return
+        
         assert(self.white_mask.shape == self.final.shape)
         # start = (0, height)
         # end = (edge_white_x, edge_white_y)
-        x1, y1 = start[0], start[1]
-        x2, y2 = end[0], end[1]
+        x1, y1 = self.centroid[0], self.centroid[1]
+        x2, y2 = self.width//2, self.height
         
-        rise = y2 - y1
-        run = x2 - x1
+        
+        #find rise and run of the 
+        rise = ((y2 - y1))//10
+        run = (x2 - x1)//10
+        
+        # rise is negative and run is positive 
+        # rise and run are huge so divide by 10
+        # print("rise, run", rise, run)
         waypoints = []
-        curr_x, curr_y = x1, y1
-        while curr_x < x2 and curr_y < y2:
-            # find normal to line at curr_x, curr_y
-            # keep going until you intercept the other lane line (use white mask, stop when you hit white)
-            # find centroid, and append to waypoints
-            normal = (-run, rise)
-            temp_x, temp_y = curr_x, curr_y
-            while(temp_x < x2 and temp_y < y2 and self.white_mask[temp_y, temp_x] == 0):
-                temp_x += normal[0]
-                temp_y += normal[1]
-            centroid = ((curr_x+temp_x)//2, (curr_y+temp_y)//2)
-            cv2.circle(self.final, centroid, 10, 255, -1)
-            waypoints.append(centroid)
-            curr_x += 5*run
-            curr_y += 5*rise
-            print(waypoints)
+        curr_x, curr_y = x2, y2
+        
+        while curr_y > 30:
+            # start at x2 following the slope (rise and run)
+            # keeping track of the points in waypoints
+            curr_x -= run # positive so subtract, update x2(bottom coordinate for next iteration) 
+            curr_y -= rise #negative so add, update y2(bottom coordinate for next iteration)
+            waypoints.append((curr_x,curr_y))
+            cv2.circle(self.final, (curr_x, curr_y), 5, 255, -1)
+            # print(curr_x,curr_y)
+            
         
         return waypoints
     
@@ -79,7 +89,7 @@ class left_turn:
         contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200 # Adjust based on noise size
         # hsv_lanes = np.zeros_like(self.mask) # New occupancy grid that is blank
-        height, width = self.white_mask.shape
+        self.height, self.width = self.white_mask.shape
         
         best_cnt = None
         max_y = 0
@@ -87,7 +97,7 @@ class left_turn:
         for cnt in contours: # Looping through contours
             if cv2.contourArea(cnt) > min_area:
                 # Find left most lane
-                if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < width // 2 and cnt[0, 0, 1] < height // 2:
+                if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < self.width // 2 and cnt[0, 0, 1] < self.height // 2:
                     max_y = cnt[0, 0, 1]
                     best_cnt = cnt
                 
@@ -106,13 +116,13 @@ class left_turn:
 
         if self.yellow_found is False:
             #right line
-            point1 = (0, int(0.5*height))
-            point2 = (int(0.125*width), height)
-            cv2.line(self.final, (int(0.8 * width), 0), (width, height), 255, 10)
+            point1 = (0, int(0.5*self.height))
+            point2 = (int(0.125*self.width), self.height)
+            cv2.line(self.final, (int(0.8 * self.width), 0), (self.width, self.height), 255, 10)
             #left line
             cv2.line(self.final, point1, point2, 255, 10)
-            
-            self.find_center_of_lane(point1, point2)
+            self.centroid = (self.width // 4, 40)
+            # self.find_center_of_lane()
         if y is not None:
             # print(x, y)
             
@@ -125,81 +135,64 @@ class left_turn:
             
             x -= 150
             x = max(0, x)
-            
-            
-            
-            while y < height and self.white_mask[y, x] != 255:
+            while y < self.height and self.white_mask[y, x] != 255:
                 y += 1
                 # cv2.circle(self.final, (x, y), 3, 255, -1)
             
             self.diff_x, self.diff_y = self.find_slope(x, y, edge_white_x, edge_white_y)    
-
-                
             x, y = edge_white_x, edge_white_y
             self.diff_x //= 10
             self.diff_y //= 10
+            # print(f"diffx {self.diff_x}, diffy {self.diff_y}")
             
+            x += self.diff_x * 5
+            y += self.diff_y * 5
             
+            point_list = []
             
-            
-            print(f"diffx {self.diff_x}, diffy {self.diff_y}")
-            
-            x += self.diff_x * 2
-            y += self.diff_y * 2
-            
-            
-            
+            while x > 0 and y > 0 and x < self.width - self.diff_x and y < self.height - self.diff_y and self.white_mask[y, x] == 0:
+                cv2.circle(self.final, (x, y), 5, 255, -1)
 
-            
-            while x > 0 and y > 0 and x < width - self.diff_x and y < height - self.diff_y and self.white_mask[y, x] == 0:
-                # cv2.circle(self.final, (x, y), 5, 255, -1)
-
-                x += self.diff_x #* 2
-                y += self.diff_y #* 2
+                x += self.diff_x #* 2, run
+                y += self.diff_y #* 2, rise
                 
-            if(self.diff_y > -40 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
+                point_list.append((x,y))
+                
+            
+            if(len(point_list) > 2):
+                self.centroid = point_list[len(point_list)//2]
+                
+            
+            cv2.circle(self.final, self.centroid, 25, 255, -1)
+                
+            # self.find_center_of_lane()
+            if(self.diff_y > -20 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
                 self.yellow_found = True
-                point1 = (0, height)
+                point1 = (0, self.height)
                 point2 = (edge_white_x, edge_white_y)
-                cv2.line(self.final, (x, y), (width, height), 255, 10)
+                cv2.line(self.final, (x, y), (self.width, self.height), 255, 10)
                 cv2.line(self.final, point1, point2, 255, 10)
-                self.find_center_of_lane(point1, point2)
+                
+            
+            if abs(self.last_diff_y - self.diff_y) >= 10:
+                self.done = True
+                
+            
             return self.diff_y
-        
-        # if self.yellow_found is False:
-        #     #right line
-        #     cv2.line(self.final, (int(0.8 * width), 0), (width, height), 255, 10)
-        #     #left line
-        #     cv2.line(self.final, (0, int(0.5*height)), (int(0.125*width), height), 255, 10)
         
         else:
             return -3
-        
-        
-                
-            
-            
-        
-    # Make main function that gets the image path and passes it into update mask as an HSV converted image
-    # use cv2.imread(filename
-    # ) then put the output into cv2.cvtcolor(image, cv2.RBGTOHSV)
-
-
-    def adjust_gamma(self, image, gamma=0.4):
-        inv_gamma = 1.0 / gamma
-        table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
-        image = cv2.LUT(image, table)
-        return image
 
 
     def run(self):
         cap = cv2.VideoCapture('data/trimmed.mov')
         self.hsv_obj = hsv('data/trimmed.mov')
         
+        # self.hsv_obj.tune("yellow")
+        
         while cap.isOpened():
             ret, self.image = cap.read()
             if ret:
-                self.image = self.adjust_gamma(self.image)
                 self.height, self.width, _ = self.image.shape
                 
                 self.update_mask()
