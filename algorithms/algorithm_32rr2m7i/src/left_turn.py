@@ -21,7 +21,7 @@ class left_turn:
         self.hsv_obj = None
         self.centroid = (None, None)
         self.width = None
-        self.done = False
+        self.done = True
         self.height = None
         
 
@@ -30,6 +30,31 @@ class left_turn:
         self.diff_x = (edge_white_x - cur_x)
 
         return self.diff_x, self.diff_y
+    
+    def past_stop_line(self):
+        cnts, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if len(cnts) == 0:
+            self.done = False
+            
+            
+    def draw_trapazoid(self):
+        top_width_start = self.width // 4  # Narrower top
+        top_width_end = self.width - (self.width // 4)
+        bottom_width_start = 0  # Wider base
+        bottom_width_end = self.width - (self.width // 9)
+
+        # Define the trapezoid points
+        pts = np.array([
+            [top_width_start, 400],  # Top-left
+            [top_width_end, 400],    # Top-right
+            [bottom_width_end, self.height],      # Bottom-right
+            [bottom_width_start, self.height]     # Bottom-left
+        ], dtype=np.int32)
+
+        # Fill the trapezoid with 0 in the mask
+        cv2.fillPoly(self.final, [pts], 0)
+
 
     def update_mask(self):
         #defining the ranges for HSV values
@@ -37,16 +62,19 @@ class left_turn:
         
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
-        # result = cv2.bitwise_and(image, image, mask=mask) #applies the mask to the base image so only masked parts of the image are shown
-        # resized_mask = cv2.resize(final_mask, (640, 480))
-        # cv2.imshow("result", result)
+        
+        self.past_stop_line()
         
         if(self.done == False):
             self.last_diff_y = self.find_left_most_lane()
         else:
+            self.draw_trapazoid()
             self.centroid = (self.width//2, 40)
         self.find_center_of_lane()
         cv2.imshow("mask", self.final)
+        final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
+        combined = np.vstack((self.image, final_bgr))
+        cv2.imshow("mask", combined)
         
     
     def find_center_of_lane(self):
@@ -60,8 +88,8 @@ class left_turn:
         x2, y2 = self.width//2, self.height
         
         
-        #find rise and run of the 
-        rise = ((y2 - y1))//10
+        #find rise and run of the
+        rise = (y2 - y1)//10
         run = (x2 - x1)//10
         
         # rise is negative and run is positive 
@@ -76,7 +104,7 @@ class left_turn:
             curr_x -= run # positive so subtract, update x2(bottom coordinate for next iteration) 
             curr_y -= rise #negative so add, update y2(bottom coordinate for next iteration)
             waypoints.append((curr_x,curr_y))
-            cv2.circle(self.final, (curr_x, curr_y), 5, 255, -1)
+            # cv2.circle(self.final, (curr_x, curr_y), 5, 255, -1)
             # print(curr_x,curr_y)
             
         
@@ -116,12 +144,15 @@ class left_turn:
 
         if self.yellow_found is False:
             #right line
+            self.draw_trapazoid()
             point1 = (0, int(0.5*self.height))
             point2 = (int(0.125*self.width), self.height)
             cv2.line(self.final, (int(0.8 * self.width), 0), (self.width, self.height), 255, 10)
             #left line
             cv2.line(self.final, point1, point2, 255, 10)
             self.centroid = (self.width // 4, 40)
+            
+            
             # self.find_center_of_lane()
         if y is not None:
             # print(x, y)
@@ -151,7 +182,7 @@ class left_turn:
             point_list = []
             
             while x > 0 and y > 0 and x < self.width - self.diff_x and y < self.height - self.diff_y and self.white_mask[y, x] == 0:
-                cv2.circle(self.final, (x, y), 5, 255, -1)
+                # cv2.circle(self.final, (x, y), 5, 255, -1)
 
                 x += self.diff_x #* 2, run
                 y += self.diff_y #* 2, rise
@@ -163,7 +194,7 @@ class left_turn:
                 self.centroid = point_list[len(point_list)//2]
                 
             
-            cv2.circle(self.final, self.centroid, 25, 255, -1)
+            # cv2.circle(self.final, self.centroid, 25, 255, -1)
                 
             # self.find_center_of_lane()
             if(self.diff_y > -20 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
@@ -185,10 +216,9 @@ class left_turn:
 
 
     def run(self):
-        cap = cv2.VideoCapture('data/trimmed.mov')
+        cap = cv2.VideoCapture('data/left_turn_full.mp4')
         self.hsv_obj = hsv('data/trimmed.mov')
         
-        # self.hsv_obj.tune("yellow")
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -202,6 +232,15 @@ class left_turn:
                 break
         cap.release()
         cv2.destroyAllWindows()
+        
+    def run_frame(self, hsv_indentifier, frame):
+        if self.hsv_obj is None:
+            self.hsv_obj = hsv(hsv_indentifier)
+        
+        self.image = frame
+        self.height, self.width, _ = self.image.shape
+    
+        self.update_mask()
 
 
 def main():

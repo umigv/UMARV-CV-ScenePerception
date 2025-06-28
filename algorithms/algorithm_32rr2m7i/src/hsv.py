@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import json
+from ultralytics import YOLO
 
 class hsv:
     def __init__(self, video_path):
@@ -10,62 +11,38 @@ class hsv:
         self.setup = False
         self.image = None
         self.final = None
+        self.barrel = True
         self.video_path = video_path
+        self.barrel_mask = None
+        self.barrel_model =  YOLO("/home/umarv/ros2_ws/src/cv-stack/drivable_area/utils/obstacles.pt")
+        self.model = YOLO("/home/umarv/ros2_ws/src/cv-stack/drivable_area/utils/laneswithcontrast.pt")
+        self.barrel_model = YOLO("/home/umarv/ros2_ws/src/cv-stack/drivable_area/utils/obstacles.pt")
         self.load_hsv_values()
         
     def load_hsv_values(self):
         if os.path.exists('hsv_values.json'):
             with open('hsv_values.json', 'r') as file:
                 all_hsv_values = json.load(file)
-                self.hsv_filters = all_hsv_values.get(self.video_path, {})
+                self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
         else:
+            # print("Matt put it in the wrong spot")
             # Initialize with an empty filter map if the JSON file doesn't exist
-            self.hsv_filters = {}
+            self.hsv_filters["white"] = {
+                'h_upper': 29, 'h_lower': 0,
+                's_upper': 51, 's_lower': 0,
+                'v_upper': 255, 'v_lower': 137
+            }
+            # print(self.hsv_filters)
+
 
     def save_hsv_values(self):
         all_hsv_values = {}
         if os.path.exists('hsv_values.json'):
             with open('hsv_values.json', 'r') as file:
                 all_hsv_values = json.load(file)
-        all_hsv_values[self.video_path] = self.hsv_filters
+        all_hsv_values[str(self.video_path)] = self.hsv_filters
         with open('hsv_values.json', 'w') as file:
             json.dump(all_hsv_values, file, indent=4)
-    # def load_hsv_values(self):
-    #     if os.path.exists('hsv_values.json'):
-    #         with open('hsv_values.json', 'r') as file:
-    #             all_hsv_values = json.load(file)
-    #             video_hsv_values = all_hsv_values.get(self.video_path, {})
-    #             self.h_upper = video_hsv_values.get('h_upper', 179)  # Default value
-    #             self.h_lower = video_hsv_values.get('h_lower', 0)    # Default value
-    #             self.s_upper = video_hsv_values.get('s_upper', 255)  # Default value
-    #             self.s_lower = video_hsv_values.get('s_lower', 0)    # Default value
-    #             self.v_upper = video_hsv_values.get('v_upper', 255)  # Default value
-    #             self.v_lower = video_hsv_values.get('v_lower', 0)    # Default value
-    #     else:
-    #         # Set default values if the JSON file doesn't exist
-    #         self.h_upper = 179
-    #         self.h_lower = 0
-    #         self.s_upper = 255
-    #         self.s_lower = 0
-    #         self.v_upper = 255
-    #         self.v_lower = 0
-                
-    # def save_hsv_values(self):
-    #     all_hsv_values = {}
-    #     if os.path.exists('hsv_values.json'):
-    #         with open('hsv_values.json', 'r') as file:
-    #             all_hsv_values = json.load(file)
-    #     all_hsv_values[self.video_path] = {
-    #         'h_upper': self.h_upper,
-    #         'h_lower': self.h_lower,
-    #         's_upper': self.s_upper,
-    #         's_lower': self.s_lower,
-    #         'v_upper': self.v_upper,
-    #         'v_lower': self.v_lower
-    #     }
-    #     with open('hsv_values.json', 'w') as file:
-    #         json.dump(all_hsv_values, file, indent=4)
-
 
     def h_upper_callback(self, value):
         self.h_upper = value
@@ -118,20 +95,17 @@ class hsv:
         _, filters = self.update_mask()
         cv2.imshow("Mask", filters[filter_name])
 
-    # def update_mask(self):
-    #     lower_bound = np.array([self.h_lower, self.s_lower, self.v_lower])
-    #     upper_bound = np.array([self.h_upper, self.s_upper, self.v_upper])
-    #     self.mask = cv2.inRange(self.hsv_image, lower_bound, upper_bound)
-    #     self.mask = cv2.erode(self.mask, None, iterations=2)
-    #     self.mask = cv2.dilate(self.mask, None, iterations=2)
-    #     contours, _ = cv2.findContours(self.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    #     min_area = 200 # Adjust based on noise size
-    #     self.final = np.zeros_like(self.mask)
-    #     for cnt in contours:
-    #         if cv2.contourArea(cnt) > min_area:
-    #             cv2.drawContours(self.final, [cnt], -1, 255, thickness=cv2.FILLED)
-                
-    #     return self.final
+    def get_barrels_YOLO(self):
+        # Get the driveable area of one frame and return the inverted mask
+        results = self.barrel_model.predict(self.image, conf=0.7)[0]
+        barrel_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
+        if(results.masks is not None):
+            for i in range(len(results.masks.xy)):
+                    segment = results.masks.xy[i]
+                    segment_array = np.array([segment], dtype=np.int32)
+                    cv2.fillPoly(barrel_mask, [segment_array], color=(255, 0, 0))
+        return barrel_mask
+
     def clear_filter(self, filter_name):
         if os.path.exists('hsv_values.json'):
             with open('hsv_values.json', 'r') as file:
@@ -154,6 +128,21 @@ class hsv:
         else:
             print("No HSV values file found.")
                 
+    def get_barrels_YOLO(self):
+        # Get the driveable area of one frame and return the inverted mask
+        results = self.barrel_model.predict(self.image, conf=0.7)[0]
+        self.barrel_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
+        if results.boxes is not None:
+            self.barrel_boxes = results.boxes.xyxyn
+        else:
+            self.barrel_boxes = None
+        if(results.masks is not None):
+            for i in range(len(results.masks.xy)):
+                    segment = results.masks.xy[i]
+                    segment_array = np.array([segment], dtype=np.int32)
+                    cv2.fillPoly(self.barrel_mask, [segment_array], color=(255, 0, 0))
+        return self.barrel_mask
+    
     def adjust_gamma(self, gamma=0.4):
         inv_gamma = 1.0 / gamma
         table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
@@ -210,6 +199,17 @@ class hsv:
         cap.release()
         cv2.destroyAllWindows()
         self.save_hsv_values()
+
+    def get_lane_lines_YOLO(self):
+        # Get the driveable area of one frame and return the inverted mask
+        results = self.model.predict(self.image, conf=0.7)[0]
+        laneline_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
+        if(results.masks is not None):
+            for i in range(len(results.masks.xy)):
+                    segment = results.masks.xy[i]
+                    segment_array = np.array([segment], dtype=np.int32)
+                    cv2.fillPoly(laneline_mask, [segment_array], color=(255, 0, 0))
+        return laneline_mask
         
     def update_mask(self):
         combined_mask = None
@@ -228,6 +228,9 @@ class hsv:
                 if cv2.contourArea(cnt) > min_area:
                     cv2.drawContours(final, [cnt], -1, 255, thickness=cv2.FILLED)
 
+            if filter_name == "white":
+                lane_line_mask = self.get_lane_lines_YOLO()
+                final = cv2.bitwise_or(final, lane_line_mask)
             # Combine masks
             if combined_mask is None:
                 combined_mask = final
@@ -236,6 +239,13 @@ class hsv:
 
             masks[filter_name] = final
 
+        if self.barrel:
+            barrels = self.get_barrels_YOLO()
+            combined_mask = cv2.bitwise_or(combined_mask, barrels)
+        # print(combined_mask.shape)
+        
+        barrels = self.get_barrels_YOLO()
+        combined = cv2.bitwise_or(combined, barrels)
         return combined_mask, masks
         
     def get_mask(self, frame):

@@ -8,7 +8,7 @@ import json
 
 class hsv:
     def __init__(self):
-        self.video_path = 'data/IMG_5123.MOV'
+        self.video_path = 'data/IMG_5102.MOV'
         self.image = None
         self.rgb_image = None
         self.mask = None
