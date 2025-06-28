@@ -1,6 +1,6 @@
 # Creating Datasets
 
-[Video tutorial](https://youtube.com) <!-- TODO Create video tutorial and update link -->
+[Video tutorial](https://www.youtube.com/watch?v=bLGTZrEHdKs)
 
 1. Take a high quality video going through a course.
 2. Convert the video to .mp4 if necessary.

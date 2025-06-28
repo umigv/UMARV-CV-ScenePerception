@@ -1,2 +1,8 @@
-.venv
-.pth
+.DS_Store
+env
+*.mp4
+*.pt
+*.MOV
+*.jpg
+*.png
+__pycache__

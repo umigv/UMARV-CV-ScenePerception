@@ -1,0 +1,9 @@
+opencv
+numpy
+sklearn
+matplotlib
+roboflow
+ultralytics
+scipy
+supervision
+shapely
