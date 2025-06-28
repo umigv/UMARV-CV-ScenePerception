@@ -2,9 +2,29 @@
 
 A research and development platform for the University of Michigan's Autonomous Robotic Vehicle (UMARV) Computer Vision team to solve the understanding of a road scene.
 
-## Models vs Algorithms
+## Models
 
-The models folder hosts all of our machine learning solutions, such as our YOLO model for object detection. Whereas the algorithms folder hosts our hard coded solutions, like the HSV filtering for lane lines. Each model/algorithm is seperated into its own folder and has its own unique ID.
+The models folder hosts all of our machine learning solutions, such as our YOLO model for object detection.
+
+Note: Each model is seperated into its own folder and has its own unique ID.
+
+### Models to Note
+
+- model_32rjdten: An RNN that has never been fully tested
+- model_32offjns: A model that shows what things like performance.json look like once you train a model
+- model_template: This is the most up to date U-Net model and if you want to start from scratch, or start with a base U-Net model, create a copy of this model
+
+
+## Algorithms
+
+The algorithms folder hosts our hard coded solutions, like the HSV filtering for lane lines. 
+
+Note: Just like models, each algorithm also is separated into its own folder and has its own unique ID.
+
+### Algorithms to Note
+
+- algorithm_32rr2m7i: The algorithm for HSV filtering
+- algorithm_32q16kx: Contains testing for different post processing algorithms for our occupancy grids
 
 ## Scripts
 
@@ -15,8 +35,8 @@ The `src/scripts/` folder hosts our scripts which provide varying functionalitie
 [Video Tutorial](https://youtube.com) Coming Soon!!<!-- TODO Create video and add link -->
 
 1. Have git installed on your computer.
-    - [git installation guide](https://git-scm.com/downloads)
-    - [git introduction](https://www.w3schools.com/git/git_intro.asp?remote=github)
+    - [Git Installation Guide](https://git-scm.com/downloads)
+    - [Git Introduction](https://www.w3schools.com/git/git_intro.asp?remote=github)
 2. Have Python installed on your computer.
     - [Python Installation Guide](https://wiki.python.org/moin/BeginnersGuide/Download)
 3. Request access to the ScenePerception GitHub repository from a team lead.
@@ -29,18 +49,21 @@ The `src/scripts/` folder hosts our scripts which provide varying functionalitie
     - ```cd ScenePerception```
     - ```git clone https://github.com/umigv/UMARV-CV-ScenePerception.git```
     - ```cd UMARV-CV-ScenePerception```
-    - IMPORTANT: Replace your branch name in the end of the next 2 commands.
-        - your_branch_name = "user/{your_name_with_no_spaces}"
-        - Ex: Branch name for Awrod Haghi-Tabrizi = user/AwrodHaghiTabrizi
+
+5. IMPORTANT: Create and checkout your own branch to work on your projects
+    - your_branch_name = "user/{your_name_with_no_spaces}"
+        - Ex: Branch name for John Smith = user/JohnSmith
     - ```git checkout -b {your_branch_name}```
     - ```git push -u origin {your_branch_name}```
-5. Open the project in VSCode.
+5. Open the local repository in VSCode.
     - Open VSCode.
     - Click File > Open Folder.
     - Open the `UMARV-CV-ScenePerception` folder.
         - Common mistake: Opening the `UMARV` folder or the `ScenePerception` folder.
         - IMPORTANT: Keep your working directory as `UMARV-CV-ScenePerception` when running scripts and notebooks.
-6. Before starting development, install the following [Python libraries](https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/requirements.md) on your machine / virtual environment either manually or with ```pip install -r requirements.txt```.
+6. Before starting development, make sure that you've created a virtual environment to install libraries and dependencies on your machine
+    - [Python Virtual Environment Tutorial](https://eecs485staff.github.io/p1-insta485-static/setup_virtual_env.html)
+8. Before starting development, install the following [Python Libraries](https://github.com/umigv/UMARV-CV-ScenePerception/blob/main/docs/requirements.md) in virtual environment either manually or with ```pip install -r requirements.txt```.
 
 ## For New Members
 Before creating your first model its suggested that you create one copy of the model_template and use one of the notebooks to train a small model. Here are the instructions on how to do this:
@@ -54,7 +77,7 @@ Before creating your first model its suggested that you create one copy of the m
 
 ### Repository Rules
 
-- Full freedom to create/delete/edit code in your model/algorithm folder.
+- Full freedom to create/delete/edit code in your model/algorithm folder on your own branch.
 - Dont change any code in:
     - model/algorithm folders that dont belong to you (you can tell by the author name in the content/info.json or just by the model id itself).
     - `src/scripts/` (unless making global updates).
