@@ -8,7 +8,7 @@ The models folder hosts all of our machine learning solutions, while the algorit
 
 ## Scripts
 
-The `src/scripts/` folder hosts our scripts which provide varrying functionalities from model/algorithm initialization, performance comparison, and dataset generation. To run them, right click on the script and select "Run Python File in Terminal".
+The `src/scripts/` folder hosts our scripts which provide varying functionalities from model/algorithm initialization, performance comparison, and dataset generation. To run them, right click on the script and select "Run Python File in Terminal".
 
 ## How To Interact With This Repository
 
