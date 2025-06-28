@@ -4,7 +4,7 @@ A research and development platform for the University of Michigan's Autonomous 
 
 ## Models vs Algorithms
 
-The models folder hosts all of our machine learning solutions, while the algorithms folder hosts our hard coded solutions. Each model/algorithm is seperated into its own folder and has its own unique ID.
+The models folder hosts all of our machine learning solutions, such as our YOLO model for object detection. Whereas the algorithms folder hosts our hard coded solutions, like the HSV filtering for lane lines. Each model/algorithm is seperated into its own folder and has its own unique ID.
 
 ## Scripts
 
