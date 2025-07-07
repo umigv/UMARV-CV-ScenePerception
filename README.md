@@ -34,11 +34,8 @@ The `src/scripts/` folder hosts our scripts which provide varying functionalitie
 
 [Video Tutorial](https://youtube.com) Coming Soon!!<!-- TODO Create video and add link -->
 
-1. Have git installed on your computer.
-    - [Git Installation Guide](https://git-scm.com/downloads)
-    - [Git Introduction](https://www.w3schools.com/git/git_intro.asp?remote=github)
-2. Have Python installed on your computer.
-    - [Python Installation Guide](https://wiki.python.org/moin/BeginnersGuide/Download)
+1. Have git installed on your computer. Refer back to the CV-Onboarding repository for Git tutorials.
+2. Have Python installed on your computer. Refer back to the CV-Onboarding repository for Python setup tutorials.
 3. Request access to the ScenePerception GitHub repository from a team lead.
     - You must accept the invitation to the GitHub repository.
 4. Setup the repository on your local machine.
