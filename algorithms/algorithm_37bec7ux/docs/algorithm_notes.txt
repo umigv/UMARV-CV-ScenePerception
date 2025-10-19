@@ -1,0 +1,23 @@
+algorithm notes
+
+1. solve this equation for random set of 3 points
+
+x1 y1 1  a    z1
+x2 y2 1  b  = z2
+x3 y3 1  d    z3
+
+make sure the matrix has full rank
+
+2. calculate the score (sum the metric for all points)
+
+ax + by + d = z
+
+metric = abs(ax + by - z - d)
+score of the plane = sum of metric for all points
+
+3. repeat sampling
+
+NOT DOING. point cloud conversion
+px = (x-cx)/fx
+py = (y-cy)/fy
+py = z
