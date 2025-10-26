@@ -261,8 +261,8 @@ class hsv:
             combined_mask = cv2.bitwise_or(combined_mask, barrels)
         # print(combined_mask.shape)
         
-        barrels = self.get_barrels_YOLO()
-        combined = cv2.bitwise_or(combined, barrels)
+        # barrels = self.get_barrels_YOLO()
+        # combined = cv2.bitwise_or(combined, barrels)
         return combined_mask, masks
         
     def get_mask(self, frame):
