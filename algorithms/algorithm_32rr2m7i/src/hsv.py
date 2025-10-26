@@ -5,6 +5,7 @@ import json
 from ultralytics import YOLO
 
 class hsv:
+    # TODO: Image support for type and mode.
     def __init__(self, video_path):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
@@ -14,8 +15,8 @@ class hsv:
         self.barrel = True
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO("path to obstacles.pt")
-        self.model = YOLO("path to laneswithcontrast.pt")
+        self.barrel_model =  YOLO("data/obstacles.pt")
+        self.model = YOLO("data/laneswithcontrast.pt")
         self.load_hsv_values()
         
     def load_hsv_values(self):
@@ -35,6 +36,7 @@ class hsv:
 
 
     def save_hsv_values(self):
+        # TODO: Let user define target path for hsv_values.
         all_hsv_values = {}
         if os.path.exists('hsv_values.json'):
             with open('hsv_values.json', 'r') as file:
@@ -176,7 +178,7 @@ class hsv:
         if not cap.isOpened():
             print(f"Error: Unable to open video file {self.video_path}")
             return
-
+        #TODO: UI sucks on MAC, fix this slider for all users.
         cv2.namedWindow('control pannel')
         cv2.createTrackbar('H_upper', 'control pannel', filter_values['h_upper'], 179,
                            lambda v: self.__update_filter(filter_name, 'h_upper', v))
@@ -216,6 +218,7 @@ class hsv:
 
     def get_lane_lines_YOLO(self):
         # Get the driveable area of one frame and return the inverted mask
+        # Custom only for lane lines !
         results = self.model.predict(self.image, conf=0.7)[0]
         laneline_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
         if(results.masks is not None):
