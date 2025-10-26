@@ -178,8 +178,10 @@ class hsv:
         if not cap.isOpened():
             print(f"Error: Unable to open video file {self.video_path}")
             return
+        
+
         #TODO: UI sucks on MAC, fix this slider for all users.
-        cv2.namedWindow('control pannel')
+        cv2.namedWindow('control pannel',cv2.WINDOW_NORMAL)
         cv2.createTrackbar('H_upper', 'control pannel', filter_values['h_upper'], 179,
                            lambda v: self.__update_filter(filter_name, 'h_upper', v))
         cv2.createTrackbar('H_lower', 'control pannel', filter_values['h_lower'], 179,
