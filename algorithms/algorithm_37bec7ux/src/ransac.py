@@ -124,7 +124,7 @@ best_mask = get_mask(best_coeffs[0] / kernel[1], best_coeffs[1] / kernel[0], bes
 
 end = time.perf_counter()
 f, axarr = plt.subplots(2,1)
-axarr[0].imshow(image)
+axarr[0].imshow(image[:, :, [2, 1, 0]])
 axarr[1].imshow(best_mask, interpolation='nearest')
 plt.show()
 print(f"{1000 * (end - start)} ms per frame")
