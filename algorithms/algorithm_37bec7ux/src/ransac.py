@@ -9,19 +9,22 @@ import math
 # PARAMETERS
 
 filename = "res/19_11_10.hdf5"
-frame_number = 400
+frame_number = -1
 
 iters = 100
-kernel = (3, 3) # kernel is rows, columns
+kernel = (1, 10) # kernel is rows, columns
 # with normalise tolerance 0.3 works well
 # tolerance = 300
-tolerance = 0.23
+tolerance = 0.1
 
 # INPUT FILTERING (@the2nake)
 
 # take in the 720p? data (some high-res data)
 f = h5py.File(filename, "r")
 # print(list(f.keys()))
+if frame_number < 0:
+    frame_number = int(math.floor(random.random() * len(f["depth_maps"])))
+    print(f"Using randomised frame number: {frame_number}")
 depth_map = f["depth_maps"][frame_number]
 image = f["images"][frame_number]
 image = image[:, 0:int(image.shape[1]/2)]
@@ -107,17 +110,13 @@ for i in range(iters):
     if metric > best:
         best = metric
         best_coeffs = [c1, c2, c3]
-        
-print("Best plane coefficients:", best_coeffs)
-
-# now we have the best plane fit
 
 # OUTPUT FORMAT (@the2nake)
 
 def get_mask(c1, c2, c3, tol=tolerance):
     h, w = depth_map.shape
     X, Y = np.meshgrid(np.arange(w), np.arange(h))
-    Z = abs(c1 * X + c2 * Y + c3 - depth_map)
+    Z = pow(c1 * X + c2 * Y + c3 - depth_map, 2)
     return Z < tol
 
 
@@ -148,3 +147,5 @@ print(f"{1000 * (end - start)} ms per frame")
 # ax.set_zlabel("Depth")
 # plt.legend()
 # plt.show()
+
+# TODO? double pass ransac, pick points within ok zone of first half of iterations for the second half of iterations
