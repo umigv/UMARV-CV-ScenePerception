@@ -1,21 +1,21 @@
 import numpy as np  # matrices
-import matplotlib
+import matplotlib.pyplot as plt
 import h5py  # reading data
 import skimage
 import random
 import time
 import math
-from matplotlib import pyplot as plt
+
 # PARAMETERS
 
 filename = "res/19_11_10.hdf5"
 frame_number = 400
 
 iters = 100
-kernel = (5, 5) # kernel is rows, columns
-# with normalise tolerance 0.25 works well
+kernel = (3, 3) # kernel is rows, columns
+# with normalise tolerance 0.3 works well
 # tolerance = 300
-tolerance = 0.25
+tolerance = 0.23
 
 # INPUT FILTERING (@the2nake)
 
@@ -107,22 +107,12 @@ for i in range(iters):
     if metric > best:
         best = metric
         best_coeffs = [c1, c2, c3]
+        
+print("Best plane coefficients:", best_coeffs)
 
 # now we have the best plane fit
 
-# TODO: MATPLOTLIB VISUALISATION TO CHECK PLANE VALIDITY ON ?RANDOM? POINT DATA
-
 # OUTPUT FORMAT (@the2nake)
-
-# figure out corresponding to pixels
-# essentially one last iteration of ransac without the sampling
-
-# for each pixel:
-#     check if it is an outlier
-#     create a 2d matrix of boolean values with the same dimensions as the pooled data
-
-# UPSIZE THIS TO THE ORIGINAL HIGH_RES FORMAT (NEAREST NEIGHBOUR)
-
 
 def get_mask(c1, c2, c3, tol=tolerance):
     h, w = depth_map.shape
