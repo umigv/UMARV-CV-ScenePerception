@@ -11,8 +11,8 @@ import math
 filename = "res/19_11_10.hdf5"
 frame_number = -1
 
-iters = 100
-kernel = (1, 10) # kernel is rows, columns
+iters = 80
+kernel = (1, 12) # kernel is rows, columns
 # with normalise tolerance 0.3 works well
 # tolerance = 300
 tolerance = 0.1
@@ -95,9 +95,8 @@ def calculate_metric(c1, c2, c3, tol=tolerance):
     h, w = input_data.shape
     ys, xs = np.indices((h, w))
     z_pred = c1 * xs + c2 * ys + c3
-    mask = input_data != -np.inf
-    errors = np.abs(z_pred[mask] - input_data[mask])
-    return np.sum(errors < tol)
+    errors = np.abs(z_pred - input_data)
+    return np.count_nonzero(errors < tol)
 
 
 best = 0
