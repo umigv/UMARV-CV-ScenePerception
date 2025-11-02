@@ -52,6 +52,7 @@ def mask(depths, coeffs, tol: float):
     Z = pow(c1 * X + c2 * Y + c3 - depths, 2)
     return Z < tol
 
+
 # will maintain the dimensions of the original
 def ransac(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
@@ -76,7 +77,8 @@ def ransac(
 
     res = mask(depths, best_coeffs, tol)
 
-    return res, best_coeffs, max_depth
+    return res, best_coeffs / max_depth
+
 
 def hsv_mask(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -86,10 +88,27 @@ def hsv_mask(image):
 
     return white_mask
 
+
 def hsv_and_ransac(image, *args):
     ground_mask, _, _ = ransac(*args)
     lane_mask = hsv_mask(image) & ground_mask
     outlier_mask = ground_mask != 1
 
     return outlier_mask | lane_mask
-    
+
+
+def real_coeffs(best_coeffs, cx, cy, fx, fy):
+    c1, c2, c3 = best_coeffs
+    d = 1 / (c1 * cx + c2 * cy + c3)
+    a = -d * c1 * fx
+    b = -d * c2 * fy
+    return a, b, d
+
+
+def real_angle(real_coeffs):
+    # upon clicking on the opencv image
+    # get the pixel coordinates of the click
+    # angle between [0, 0, -1] and [a, b, -1]
+    a, b, _ = real_coeffs
+    theta = math.acos(1 / math.hypot(a, b, -1))
+    return math.degrees(theta)
