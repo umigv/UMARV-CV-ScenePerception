@@ -19,4 +19,4 @@
 * python
   * matplotlib >= 3.5.0
   * h5py >= 3.0.0
-* make sure to download the `res/19_11_10.hdf5` test file (check `src/README.md`)
+* make sure to download the `res/19_11_10.hdf5` test file (check `res/README.md`)
