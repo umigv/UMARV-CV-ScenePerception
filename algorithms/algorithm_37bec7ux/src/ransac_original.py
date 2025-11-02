@@ -1,18 +1,19 @@
 import numpy as np  # matrices
 import matplotlib.pyplot as plt
 import h5py  # reading data
-import skimage
+import skimage  # image filter
 import random
 import time
 import math
+import ransac
 
 # PARAMETERS
 
 filename = "res/19_11_10.hdf5"
 frame_number = -1
 
-iters = 80
-kernel = (1, 12) # kernel is rows, columns
+iters = 50
+kernel = (1, 16)  # kernel is rows, columns
 # with normalise tolerance 0.3 works well
 # tolerance = 300
 tolerance = 0.1
@@ -25,9 +26,10 @@ f = h5py.File(filename, "r")
 if frame_number < 0:
     frame_number = int(math.floor(random.random() * len(f["depth_maps"])))
     print(f"Using randomised frame number: {frame_number}")
+raw_depths = f["depth_maps"][frame_number]
 depth_map = f["depth_maps"][frame_number]
 image = f["images"][frame_number]
-image = image[:, 0:int(image.shape[1]/2)]
+image = image[:, 0 : int(image.shape[1] / 2)]
 
 f.close()
 
@@ -50,7 +52,7 @@ def average(depth_map, kernel: tuple[int, int]):
     h, w = depth_map.shape
     w -= w % kernel[1]
     h -= h % kernel[0]
-    depth_map = depth_map[0:h, 0:w]
+    depth_map = depth_map[:h, :w]
     return skimage.measure.block_reduce(depth_map, kernel, np.mean)
 
 
@@ -67,8 +69,8 @@ h, w = input_data.shape
 
 def sample_points():
     # check A matrix will turn out with rank < 3 (check x and y values)
-    b = np.array([[0.0], [0.0], [0.0]])
-    A = np.ndarray((3, 3))
+    b = np.zeros(3)
+    A = np.zeros((3, 3))
     # repeat sampling instead of selecting using argwhere (don't process the whole array)
     while True:
         for i in range(3):
@@ -77,11 +79,11 @@ def sample_points():
             while row < 0 or col < 0 or np.isneginf(input_data[row][col]):
                 row = math.floor(random.random() * h)
                 col = math.floor(random.random() * w)
-            b[i] = [input_data[row][col]]
+            b[i] = input_data[row][col]
             A[i] = [float(col), float(row), 1.0]
         if np.linalg.matrix_rank(A) == 3:
             break
-    return A, b
+    return A, np.transpose(b)
 
 
 def calculate_plane(A, b):
@@ -111,6 +113,7 @@ for i in range(iters):
         best_coeffs = [c1, c2, c3]
 
 # OUTPUT FORMAT (@the2nake)
+print(best_coeffs)
 
 def get_mask(c1, c2, c3, tol=tolerance):
     h, w = depth_map.shape
@@ -119,13 +122,16 @@ def get_mask(c1, c2, c3, tol=tolerance):
     return Z < tol
 
 
-best_mask = get_mask(best_coeffs[0] / kernel[1], best_coeffs[1] / kernel[0], best_coeffs[2])
+best_mask = get_mask(
+    best_coeffs[0] / kernel[1], best_coeffs[1] / kernel[0], best_coeffs[2]
+)
 # output_mask = skimage.transform.rescale(best_mask, kernel)
 
 end = time.perf_counter()
-f, axarr = plt.subplots(2,1)
-axarr[0].imshow(image[:, :, [2, 1, 0]])
-axarr[1].imshow(best_mask, interpolation='nearest')
+f, axarr = plt.subplots(3, 1)
+axarr[0].imshow(image[100:, :, [2, 1, 0]])
+axarr[1].imshow(best_mask[100:, :], interpolation='nearest')
+axarr[2].imshow(ransac.ransac(raw_depths, 60, (1, 16), 0.1)[100:, :], interpolation='nearest')
 plt.show()
 print(f"{1000 * (end - start)} ms per frame")
 
