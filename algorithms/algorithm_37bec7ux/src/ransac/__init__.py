@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 import skimage
+import cv2
 
 
 def pool(depths, kernel: tuple[int, int]):
@@ -76,3 +77,19 @@ def ransac(
     res = mask(depths, best_coeffs, tol)
 
     return res
+
+def hsv_mask(image):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    lower_white = np.array([0, 0, 200], dtype=np.uint8)
+    upper_white = np.array([180, 40, 255], dtype=np.uint8)
+    white_mask = cv2.inRange(image, lower_white, upper_white) > 0
+
+    return white_mask
+
+def hsv_and_ransac(image, *args):
+    ground_mask = ransac(*args)
+    lane_mask = hsv_mask(image) & ground_mask
+    outlier_mask = ground_mask != 1
+
+    return outlier_mask | lane_mask
+    

@@ -30,13 +30,15 @@ def main():
     writer = cv2.VideoWriter("out/ransac.avi", fourcc, 30, (w, 2 * h))
 
     for i in range(len(depth) // 1):
-        mask = (255 * ransac.ransac(depth[i], iters, kernel, tolerance)).astype(
+        view = color[i][:, : int(color[i].shape[1] / 2)]
+
+        mask = (255 * ransac.hsv_and_ransac(view, depth[i], iters, kernel, tolerance)).astype(
             np.uint8
         )
         mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
         mask = cv2.rectangle(mask, (50, 100), (w-50, h-2), (0, 255, 0), 2)
         mask = cv2.putText(mask, "reliable area", (75, 125), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
-        view = color[i][:, : int(color[i].shape[1] / 2)]
+        
         vis = np.concatenate((view, mask), axis=0)
 
         writer.write(vis)
