@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from hsv import hsv
+from drivable_area.hsv import hsv
 
 
 class leftTurn:
@@ -67,12 +67,19 @@ class leftTurn:
         
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
-        self.barrel_boxes = self.hsv_obj.barrel_boxes
-        self.state_machine()
+        
+        self.past_stop_line()
+        
+        # if(self.done == False):
+        self.last_diff_y = self.find_left_most_lane()
+        # else:
+        #     self.draw_trapazoid()
+        #     self.centroid = (self.width//2, 40)
+        self.find_center_of_lane()
         cv2.imshow("mask", self.final)
         final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
         combined = np.vstack((self.image, final_bgr))
-        cv2.imshow("mask2", combined)
+        cv2.imshow("mask", combined)
         
     
     def find_center_of_lane(self):
@@ -102,7 +109,7 @@ class leftTurn:
             curr_x -= run # positive so subtract, update x2(bottom coordinate for next iteration) 
             curr_y -= rise #negative so add, update y2(bottom coordinate for next iteration)
             waypoints.append((curr_x,curr_y))
-            cv2.circle(self.final, (curr_x, curr_y), 5, 255, -1)
+            # cv2.circle(self.final, (curr_x, curr_y), 5, 255, -1)
             # print(curr_x,curr_y)
             
         
@@ -143,7 +150,6 @@ class leftTurn:
         # Anytime we see yellow dashed we should invoke this state
         
         # MAKE SURE TO CHECK FOR CONE IN FRONT
-        print(self.barrel_boxes)
         for segment in self.barrel_boxes:
             x_min, y_min, x_max, y_max = segment
             vertices = np.array([
@@ -159,8 +165,12 @@ class leftTurn:
                 if(self.midpoint > self.width // 4 and self.midpoint < (self.width - (self.width//4))):
                     self.in_state_4 = True
                     self.centroid = self.midpoint
-                    print("In state 4!!!")
                     return
+            else:
+                self.midpoint = None
+            
+                
+
         
         max_y = 0
         x, y = None, None
@@ -194,7 +204,6 @@ class leftTurn:
                 x += self.diff_x #* 2, run
                 y += self.diff_y #* 2, rise
                 point_list.append((x,y))
-            # if(len(point_list) > 2):
             self.centroid = point_list[len(point_list)//2]
             self.yellow_found = True
             point1 = (0, self.height)
@@ -204,31 +213,23 @@ class leftTurn:
         
         
     
-    def state_4(self):
-        # State invoked if the cone is in the center of our view
-        # connect the robot with the cone. 
-        # Once in this state STAY in this state
-        self.centroid = self.midpoint
-        #no need to draw lines you should be within them
+    
         
     def state_machine(self):
         # This will decide which spot to be in
         # invariant: yellow_mask and white_mask must be set
-        # assert(self.white_mask != None)
-        # assert(self.yellow_mask != None)
+        assert(self.white_mask != None)
+        assert(self.yellow_mask != None)
         
         self.height, self.width = self.white_mask.shape
         if not self.state_1_done:
             # still in state 1, but once we are out of state 1 there is no way back
             self.state_1()
-            self.find_center_of_lane()
             return
         
         contours, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200
         
-        best_cnt = None
-        max_y = 0
         num_yellow_dashed = 0
         for cnt in contours: # Looping through contours
             if cv2.contourArea(cnt) > min_area:
@@ -239,19 +240,15 @@ class leftTurn:
                     
         if num_yellow_dashed == 0:
             self.state_2()
-            self.find_center_of_lane()
-
             return
         else:
             self.state_3(best_cnt)
-            self.find_center_of_lane()
-        
 
     def run(self):
         cap = cv2.VideoCapture('data/left_turn_full.mp4')
         self.hsv_obj = hsv('data/trimmed.mov')
         
-        # self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')
+        self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -265,6 +262,15 @@ class leftTurn:
                 break
         cap.release()
         cv2.destroyAllWindows()
+        
+    def run_frame(self, hsv_indentifier, frame):
+        if self.hsv_obj is None:
+            self.hsv_obj = hsv(hsv_indentifier)
+        
+        self.image = frame
+        self.height, self.width, _ = self.image.shape
+    
+        self.update_mask()
 
 
 def main():
