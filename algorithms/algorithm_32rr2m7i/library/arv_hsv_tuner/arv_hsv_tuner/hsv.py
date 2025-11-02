@@ -165,6 +165,13 @@ class hsv:
         self.image = cv2.LUT(self.image, table)
         
     def tune(self, filter_name):
+        # GUI adaptation to use Qt, instead of OpenCV's library.
+        try:
+            from arv_hsv_tuner.qt_tuner import tune_with_qt
+            return tune_with_qt(self, filter_name)
+        except (ImportError, Exception):
+            pass  # Fall back to OpenCV GUI
+
         if filter_name not in self.hsv_filters:
             # Initialize default values for the new filter
             self.hsv_filters[filter_name] = {

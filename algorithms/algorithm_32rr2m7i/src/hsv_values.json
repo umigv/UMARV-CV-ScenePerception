@@ -7,11 +7,11 @@
     "v_lower": 201,
     "data/comp23_6.MOV": {
         "yellow": {
-            "h_upper": 145,
+            "h_upper": 137,
             "h_lower": 11,
-            "s_upper": 118,
+            "s_upper": 100,
             "s_lower": 0,
-            "v_upper": 168,
+            "v_upper": 199,
             "v_lower": 30
         }
     }
