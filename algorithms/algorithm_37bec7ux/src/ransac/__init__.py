@@ -58,7 +58,7 @@ def ransac(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
 ):
     depths = np.where(np.isinf(depths) | np.isnan(depths), -np.inf, depths)
-    max_depth = int(depths.max())
+    max_depth = float(depths.max())
     depths = max_depth / depths
     pooled = pool(depths, kernel)
     best = 0
@@ -77,7 +77,7 @@ def ransac(
 
     res = mask(depths, best_coeffs, tol)
 
-    return res, best_coeffs / max_depth
+    return res, np.array(best_coeffs) / max_depth
 
 
 def hsv_mask(image):
