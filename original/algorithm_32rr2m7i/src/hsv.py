@@ -14,8 +14,8 @@ class hsv:
         self.barrel = True
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO("models/obstacles.pt")
-        self.model = YOLO("models/laneswithcontrast.pt")
+        self.barrel_model =  YOLO("path to obstacles.pt")
+        self.model = YOLO("path to laneswithcontrast.pt")
         self.load_hsv_values()
         
     def load_hsv_values(self):
@@ -162,8 +162,7 @@ class hsv:
         table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
         self.image = cv2.LUT(self.image, table)
         
-    def tune(self, filter_name, image_mode=False):
-        print("tune called")
+    def tune(self, filter_name):
         if filter_name not in self.hsv_filters:
             # Initialize default values for the new filter
             self.hsv_filters[filter_name] = {
@@ -173,15 +172,10 @@ class hsv:
             }
         filter_values = self.hsv_filters[filter_name]
         self.setup = True
-        if not image_mode:
-            cap = cv2.VideoCapture(self.video_path)
-            if not cap.isOpened():
-                print(f"Error: Unable to open video file {self.video_path}")
-                return
-        else:
-            print("reading image")
-            cap = cv2.imread(self.video_path)
-
+        cap = cv2.VideoCapture(self.video_path)
+        if not cap.isOpened():
+            print(f"Error: Unable to open video file {self.video_path}")
+            return
 
         cv2.namedWindow('control pannel')
         cv2.createTrackbar('H_upper', 'control pannel', filter_values['h_upper'], 179,
@@ -198,39 +192,25 @@ class hsv:
                            lambda v: self.__update_filter(filter_name, 'v_lower', v))
         cv2.createTrackbar('Done Tuning', 'control pannel', 0, 1, self.on_button_click)
 
-        if not image_mode:
-            while self.setup:
-                ret, frame = cap.read()
-                if not ret:
-                    # If the video ends, reset to the beginning
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    continue
-                self.image = frame
-                self.adjust_gamma()
-                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-                mask, dict = self.update_mask()
+        while self.setup:
+            ret, frame = cap.read()
+            if not ret:
+                # If the video ends, reset to the beginning
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+            self.image = frame
+            self.adjust_gamma()
+            self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+            mask, dict = self.update_mask()
 
-                cv2.imshow('Video', frame)
-                cv2.imshow('Mask', dict[filter_name])
+            cv2.imshow('Video', frame)
+            cv2.imshow('Mask', dict[filter_name])
 
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:  # Press 'Esc' to exit the loop
-                    break
-        else:
-            while self.setup:
-                self.image = cap
-                self.adjust_gamma()
-                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-                mask, dict = self.update_mask()
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:  # Press 'Esc' to exit the loop
+                break
 
-                cv2.imshow("Image", cap)
-                cv2.imshow("Mask", dict[filter_name])
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:
-                    break
-        if not image_mode:
-          cap.release() 
+        cap.release()
         cv2.destroyAllWindows()
         self.save_hsv_values()
 
@@ -279,7 +259,7 @@ class hsv:
         # print(combined_mask.shape)
         
         barrels = self.get_barrels_YOLO()
-        combined_mask = cv2.bitwise_or(combined_mask, barrels)
+        combined = cv2.bitwise_or(combined, barrels)
         return combined_mask, masks
         
     def get_mask(self, frame):

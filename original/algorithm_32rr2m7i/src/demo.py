@@ -3,7 +3,7 @@ from hsv import hsv
 
 def main():
     # Initialize the HSV class with a video path
-    video_path = "data/comp23_6.MOV"  # Replace with your video file path
+    video_path = "data/compvid.mp4"  # Replace with your video file path
     hsv_obj = hsv(video_path)
 
     hsv_obj.tune("yellow")
@@ -26,8 +26,8 @@ def main():
         # Display the original frame, combined mask, and individual masks
         cv2.imshow("Original Frame", frame)
         cv2.imshow("Combined Mask", combined_mask)
-        cv2.imshow("Yellow Lane Mask", masks["yellow"])
-        # cv2.imshow("White Lane Mask", masks["white_lane"])
+        cv2.imshow("Yellow Lane Mask", masks["yellow_lane"])
+        cv2.imshow("White Lane Mask", masks["white_lane"])
 
         # Exit on pressing 'q'
         if cv2.waitKey(1) & 0xFF == ord('q'):
