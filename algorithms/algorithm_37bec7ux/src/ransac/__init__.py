@@ -76,7 +76,7 @@ def ransac(
 
     res = mask(depths, best_coeffs, tol)
 
-    return res
+    return res, best_coeffs, max_depth
 
 def hsv_mask(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -87,7 +87,7 @@ def hsv_mask(image):
     return white_mask
 
 def hsv_and_ransac(image, *args):
-    ground_mask = ransac(*args)
+    ground_mask, _, _ = ransac(*args)
     lane_mask = hsv_mask(image) & ground_mask
     outlier_mask = ground_mask != 1
 
