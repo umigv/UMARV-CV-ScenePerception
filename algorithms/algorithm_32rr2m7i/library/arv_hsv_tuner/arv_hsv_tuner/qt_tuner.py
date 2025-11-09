@@ -23,6 +23,10 @@ class QtTunerWindow(QMainWindow):
         self.is_dragging = False  # Track if user is dragging a slider
         self.current_frame = None  # Store current frame for redraw during drag
         self.current_mask = None   # Store current mask for redraw during drag
+
+        # Frame skipping for performance
+        self.frame_skip = 2  # Process every 2nd frame (skip 1)
+        self.frame_counter = 0
         
         if filter_name not in self.hsv.hsv_filters:
             self.hsv.hsv_filters[filter_name] = {
@@ -131,8 +135,8 @@ class QtTunerWindow(QMainWindow):
         values = self.hsv.hsv_filters[self.filter_name]
         
         for param, max_val in [('h_upper', 179), ('h_lower', 179),
-                               ('s_upper', 255), ('s_lower', 255),
-                               ('v_upper', 255), ('v_lower', 255)]:
+                            ('s_upper', 255), ('s_lower', 255),
+                            ('v_upper', 255), ('v_lower', 255)]:
             slider_widget = self.create_slider(
                 param.replace('_', ' ').title(),
                 0, max_val, values[param], param
@@ -142,6 +146,53 @@ class QtTunerWindow(QMainWindow):
         hsv_group.setLayout(hsv_layout)
         layout.addWidget(hsv_group)
         
+        # NEW: Performance Group
+        perf_group = QGroupBox("Performance")
+        perf_layout = QVBoxLayout()
+        
+        # Frame skip control
+        skip_label = QLabel("Frame Skip (higher = faster, choppier)")
+        skip_label.setStyleSheet("color: white; border: none; background: transparent; font-size: 11px;")
+        perf_layout.addWidget(skip_label)
+        
+        skip_widget = QWidget()
+        skip_layout = QHBoxLayout(skip_widget)
+        skip_layout.setContentsMargins(0, 0, 0, 0)
+        
+        skip_lbl = QLabel("Skip:")
+        skip_lbl.setMinimumWidth(80)
+        skip_lbl.setStyleSheet("color: white; border: none; background: transparent;")
+        
+        self.skip_slider = QSlider(Qt.Horizontal)
+        self.skip_slider.setMinimum(1)  # Process every frame
+        self.skip_slider.setMaximum(5)  # Skip up to 4 frames
+        self.skip_slider.setValue(2)    # Default: skip 1 frame
+        
+        self.skip_value_label = QLabel("2 (Every 2nd)")
+        self.skip_value_label.setMinimumWidth(100)
+        self.skip_value_label.setStyleSheet("color: white; border: none; background: transparent;")
+        
+        self.skip_slider.valueChanged.connect(self.on_skip_changed)
+        
+        skip_layout.addWidget(skip_lbl)
+        skip_layout.addWidget(self.skip_slider, stretch=1)
+        skip_layout.addWidget(self.skip_value_label)
+        
+        perf_layout.addWidget(skip_widget)
+        
+        # Info text
+        info_text = QLabel(
+            "• 1 = Every frame (slowest, smoothest)\n"
+            "• 2 = Every 2nd frame (recommended)\n"
+            "• 3+ = Every 3rd+ frame (faster, choppy)"
+        )
+        info_text.setStyleSheet("color: #888; border: none; background: transparent; font-size: 10px;")
+        info_text.setWordWrap(True)
+        perf_layout.addWidget(info_text)
+        
+        perf_group.setLayout(perf_layout)
+        layout.addWidget(perf_group)
+        
         layout.addStretch()
         
         # Done button
@@ -150,6 +201,29 @@ class QtTunerWindow(QMainWindow):
         layout.addWidget(btn_done)
         
         return widget
+
+    def on_skip_changed(self, value):
+        """Update frame skip value"""
+        self.frame_skip = value
+        
+        descriptions = {
+            1: "1 (Every frame)",
+            2: "2 (Every 2nd)",
+            3: "3 (Every 3rd)",
+            4: "4 (Every 4th)",
+            5: "5 (Every 5th)"
+        }
+        
+        self.skip_value_label.setText(descriptions.get(value, str(value)))
+        print(f"Frame skip set to {value} - processing every {value}{self.get_ordinal(value)} frame")
+
+    def get_ordinal(self, n):
+        """Get ordinal suffix (1st, 2nd, 3rd, etc)"""
+        if 10 <= n % 100 <= 20:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return suffix
     
     def create_slider(self, label, min_val, max_val, initial, param_name):
         widget = QWidget()
@@ -264,7 +338,20 @@ class QtTunerWindow(QMainWindow):
         return True
     
     def update_frame(self):
-        """Process and display video frame - FULL PIPELINE"""
+        """Process and display video frame with frame skipping"""
+        # Increment frame counter
+        self.frame_counter += 1
+        
+        # Skip frames based on frame_skip setting
+        if self.frame_counter % self.frame_skip != 0:
+            # Still need to read the frame to advance video
+            if not self.is_dragging:
+                ret, _ = self.cap.read()
+                if not ret:
+                    self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    self.frame_counter = 0
+            return  # Skip processing/display
+        
         # Only update video if not dragging
         if self.is_dragging:
             return
@@ -272,6 +359,7 @@ class QtTunerWindow(QMainWindow):
         ret, frame = self.cap.read()
         if not ret:
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.frame_counter = 0
             ret, frame = self.cap.read()
             if not ret:
                 return
@@ -289,7 +377,7 @@ class QtTunerWindow(QMainWindow):
         
         self.hsv.hsv_image = cv2.cvtColor(self.hsv.image, cv2.COLOR_BGR2HSV)
         
-        # Call YOUR full update_mask
+        # Call YOUR update_mask (full pipeline)
         try:
             combined_mask, mask_dict = self.hsv.update_mask()
             
@@ -297,7 +385,7 @@ class QtTunerWindow(QMainWindow):
                 current_mask = mask_dict[self.filter_name]
             else:
                 current_mask = combined_mask if combined_mask is not None else np.zeros_like(self.hsv.hsv_image[:,:,0])
-                
+                    
         except Exception as e:
             print(f"Error in update_mask: {e}")
             values = self.hsv.hsv_filters[self.filter_name]

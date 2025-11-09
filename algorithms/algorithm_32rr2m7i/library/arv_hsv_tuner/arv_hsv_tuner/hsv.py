@@ -6,22 +6,23 @@ from ultralytics import YOLO
 
 class hsv:
     # TODO: Image support for type and mode.
-    def __init__(self, video_path):
+    def __init__(self, video_path,barrel_model_path,lane_model_path,tuned_hsv_path):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
         self.setup = False
         self.image = None
         self.final = None
         self.barrel = True
+        self.tuned_hsv_path = tuned_hsv_path
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO("data/obstacles.pt")
-        self.model = YOLO("data/laneswithcontrast.pt")
+        self.barrel_model =  YOLO(f"{barrel_model_path}")
+        self.model = YOLO(f"{lane_model_path}")
         self.load_hsv_values()
         
     def load_hsv_values(self):
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(f'{self.tuned_hsv_path}'):
+            with open(f'{self.tuned_hsv_path}', 'r') as file:
                 all_hsv_values = json.load(file)
                 self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
         else:
@@ -36,13 +37,12 @@ class hsv:
 
 
     def save_hsv_values(self):
-        # TODO: Let user define target path for hsv_values.
         all_hsv_values = {}
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(f'{self.tuned_hsv_path}'):
+            with open(f'{self.tuned_hsv_path}', 'r') as file:
                 all_hsv_values = json.load(file)
         all_hsv_values[str(self.video_path)] = self.hsv_filters
-        with open('hsv_values.json', 'w') as file:
+        with open(f'{self.tuned_hsv_path}', 'w') as file:
             json.dump(all_hsv_values, file, indent=4)
 
     def h_upper_callback(self, value):
@@ -279,3 +279,16 @@ class hsv:
         self.adjust_gamma()
         self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
         return self.update_mask()
+    
+    def post_processing_all_mask(self):
+        """
+        After tuning a specific hsv mask, it will show N feeds.
+        2 will be original and combined (Yolo lines + barrels + N masks)
+        2+n will be your N masks that where tuned during this session in their singular form.
+        """
+        try:
+            from arv_hsv_tuner.qt_viewer import view_all_masks
+            view_all_masks(self)
+        except ImportError:
+            print("Error: PyQt5 not installed. Install with: pip install PyQt5")
+            #self._post_processing_opencv() // Will not add for now.
