@@ -51,7 +51,7 @@ class hsv:
         if os.path.exists(location):
             with open(location, "r") as file:
                 color_json = json.load(file)
-      
+        
         color_json["color_name"] = name
         color_json[str(self.video_path)] = self.hsv_filters[name]
         with open(location, "w") as file:
