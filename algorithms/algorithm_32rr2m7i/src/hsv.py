@@ -5,7 +5,8 @@ import json
 from ultralytics import YOLO
 
 class hsv:
-    def __init__(self, video_path):
+    def __init__(self, video_path, filename="hsv_values.json"):
+        self.default_savepath = filename
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
         self.setup = False
@@ -19,8 +20,8 @@ class hsv:
         self.load_hsv_values()
         
     def load_hsv_values(self):
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(self.default_savepath):
+            with open(self.default_savepath, 'r') as file:
                 all_hsv_values = json.load(file)
                 self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
         else:
@@ -36,12 +37,24 @@ class hsv:
 
     def save_hsv_values(self):
         all_hsv_values = {}
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(self.default_savepath):
+            with open(self.default_savepath, 'r') as file:
                 all_hsv_values = json.load(file)
         all_hsv_values[str(self.video_path)] = self.hsv_filters
-        with open('hsv_values.json', 'w') as file:
+        with open(self.default_savepath, 'w') as file:
             json.dump(all_hsv_values, file, indent=4)
+
+    def save_single_range(self, name, location=None):
+        if location is None:
+            location = name + ".json"
+
+        if os.path.exists(location):
+            with open(location, "r") as file:
+                color_json = json.load(file)
+        
+        color_json[str(self.video_path)] = self.hsv_filters[name]
+        with open(location, "w") as file:
+            json.dump(color_json, file, indent=4)
 
     def h_upper_callback(self, value):
         self.h_upper = value
@@ -121,8 +134,8 @@ class hsv:
         return barrel_mask
 
     def clear_filter(self, filter_name):
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(self.default_savepath):
+            with open(self.default_savepath, 'r') as file:
                 all_hsv_values = json.load(file)
 
             if self.video_path in all_hsv_values:
@@ -132,7 +145,7 @@ class hsv:
                     if not all_hsv_values[self.video_path]:
                         del all_hsv_values[self.video_path]
 
-                    with open('hsv_values.json', 'w') as file:
+                    with open(self.default_savepath, 'w') as file:
                         json.dump(all_hsv_values, file, indent=4)
                     print(f"Filter '{filter_name}' cleared for video '{self.video_path}'.")
                 else:

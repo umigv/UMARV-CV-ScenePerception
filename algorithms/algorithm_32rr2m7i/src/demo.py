@@ -32,6 +32,8 @@ def main():
         # Exit on pressing 'q'
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+        
+    hsv_obj.save_single_range("yellow")
 
     cap.release()
     cv2.destroyAllWindows()
