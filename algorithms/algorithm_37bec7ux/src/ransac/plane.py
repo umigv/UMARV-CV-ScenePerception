@@ -1,5 +1,7 @@
 # ground plane mask creation
 
+import ransac
+
 import random
 import math
 
@@ -61,7 +63,7 @@ def clean_depths(depths):
 
 
 # will maintain the dimensions of the original
-def ransac(
+def ground_plane(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
 ):
     max_depth = float(depths.max())
@@ -96,18 +98,18 @@ def hsv_mask(image):
 
 
 def hsv_and_ransac(image, *args):
-    ground_mask, coeffs = ransac(*args)
+    ground_mask, coeffs = ground_plane(*args)
     lane_mask = hsv_mask(image) & ground_mask
     outlier_mask = ground_mask != 1
 
     return outlier_mask | lane_mask, coeffs
 
 
-def real_coeffs(best_coeffs, cx, cy, fx, fy):
+def real_coeffs(best_coeffs, intrinsics: ransac.CameraIntrinsics):
     c1, c2, c3 = best_coeffs
-    d = 1 / (c1 * cx + c2 * cy + c3)
-    a = -d * c1 * fx
-    b = -d * c2 * fy
+    d = 1 / (c1 * intrinsics.cx + c2 * intrinsics.cy + c3)
+    a = -d * c1 * intrinsics.fx
+    b = -d * c2 * intrinsics.fy
     return a, b, d
 
 

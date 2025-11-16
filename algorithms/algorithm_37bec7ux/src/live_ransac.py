@@ -24,7 +24,7 @@ from signal import signal, SIGINT
 import argparse
 import os
 import cv2
-import ransac.plane as plane
+import ransac
 
 cam = sl.Camera()
 
@@ -102,33 +102,40 @@ def main():
 
     print(f"Stereo Baseline (tx): {tx:.6f} meters")
 
+    intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx_left / 2, fy_left / 2)
+
     image = sl.Mat()
     depth = sl.Mat()
-        
+
     key = 0
     while key != 113:  # for 'q' key
         err = cam.grab(runtime)
-        if err <= sl.ERROR_CODE.SUCCESS: # good to go
-            cam.retrieve_image(image,sl.VIEW.SIDE_BY_SIDE,sl.MEM.CPU,low_resolution) #retrieve image left and right
+        if err <= sl.ERROR_CODE.SUCCESS:  # good to go
+            cam.retrieve_image(
+                image, sl.VIEW.SIDE_BY_SIDE, sl.MEM.CPU, low_resolution
+            )  # retrieve image left and right
             cam.retrieve_measure(depth, sl.MEASURE.DEPTH, sl.MEM.CPU, low_resolution_d)
-            #print(svo_image)
-            #print(depth_map)
+            # print(svo_image)
+            # print(depth_map)
             # print(depth_map.get_data())
             # todo: deal with nan and infinity
 
             img_arr = image.get_data()[:, :, :3]
-            depth_arr = plane.clean_depths(depth.get_data())
+            depth_arr = ransac.plane.clean_depths(depth.get_data())
 
-            ransac_output, ransac_coeffs = plane.ransac(depth_arr, 60, (1, 16), 0.1)
+            ransac_output, ransac_coeffs = ransac.plane.ransac(
+                depth_arr, 60, (1, 16), 0.1
+            )
             ransac_output = ransac_output[100:, :]
-            real = plane.real_coeffs(ransac_coeffs, w / 2, h / 2, fx_left / 2, fy_left / 2)
-            angle = plane.real_angle(real)
+
+            real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
+            angle = ransac.plane.real_angle(real)
 
             print(angle)
 
             svo_position = cam.get_svo_position()
 
-            cv2.imshow("View", img_arr) #dislay both images to cv
+            cv2.imshow("View", img_arr)  # dislay both images to cv
             key = cv2.waitKey(1)
             # if key == 115 :# for 's' key
             #     #save .svo image as a png
