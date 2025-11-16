@@ -3,12 +3,13 @@ import ransac
 import cv2
 import numpy as np
 import os
+import math
 
-iters = 50
+iters = 200
 kernel = (1, 16)  # kernel is rows, columns
-tolerance = 0.1
+tolerance = 0.14
 
-filename = "res/19_11_10.hdf5"
+filename = "res/perspective_test.svo2.hdf5"
 fourcc = cv2.VideoWriter_fourcc(*"XVID")
 
 
@@ -16,37 +17,86 @@ def main():
 
     f = h5py.File(filename, "r")
     color = f["images"]
-    depth = f["depth_maps"]
+    depth_maps = f["depth_maps"]
 
-    if len(depth) < 1:
+    if len(depth_maps) < 1:
         return
-    h, w = depth[0].shape
+    h, w = depth_maps[0].shape
 
     try:
         os.mkdir("out")
-    except(FileExistsError):
+    except FileExistsError:
         pass
 
     writer = cv2.VideoWriter("out/ransac.avi", fourcc, 30, (w, 2 * h))
 
-    for i in range(len(depth) // 1):
+    for i in range(len(depth_maps) // 1):
         view = color[i][:, : int(color[i].shape[1] / 2)]
 
-        mask = (255 * ransac.hsv_and_ransac(view, depth[i], iters, kernel, tolerance)).astype(
-            np.uint8
+        depth_map = ransac.clean_depths(depth_maps[i])
+
+        masked, c = ransac.hsv_and_ransac(view, depth_map, iters, kernel, tolerance)
+
+        masked = (255 * masked).astype(np.uint8)
+        masked = cv2.cvtColor(masked, cv2.COLOR_GRAY2BGR)
+        masked = cv2.rectangle(masked, (50, 100), (w - 50, h - 2), (0, 255, 0), 2)
+        masked = cv2.putText(
+            masked,
+            "reliable area",
+            (75, 125),
+            cv2.FONT_HERSHEY_COMPLEX,
+            0.5,
+            (0, 255, 0),
+            1,
         )
-        mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        mask = cv2.rectangle(mask, (50, 100), (w-50, h-2), (0, 255, 0), 2)
-        mask = cv2.putText(mask, "reliable area", (75, 125), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
+        masked = cv2.putText(
+            masked,
+            f"{c[0]:+.3e} {c[1]:+.3e} {c[2]:+.3e}",
+            (75, 150),
+            cv2.FONT_HERSHEY_COMPLEX,
+            0.5,
+            (0, 255, 0),
+            1,
+        )
+        rc = ransac.real_coeffs(c, w / 2, h / 2, 600 / 2, 600 / 2)
+        rad = ransac.real_angle(rc)
+        masked = cv2.putText(
+            masked,
+            f"{rc[0]:+.3e} {rc[1]:+.3e} {rc[2]:+.3e}",
+            (75, 175),
+            cv2.FONT_HERSHEY_COMPLEX,
+            0.5,
+            (0, 255, 0),
+            1,
+        )
+        masked = cv2.putText(
+            masked,
+            f"angle: {math.degrees(rad)}",
+            (75, 200),
+            cv2.FONT_HERSHEY_COMPLEX,
+            0.5,
+            (0, 255, 0),
+            1,
+        )
+        masked = cv2.putText(
+            masked,
+            f"components: {math.cos(rad):+.3}y + {math.sin(rad):+.3}z",
+            (75, 225),
+            cv2.FONT_HERSHEY_COMPLEX,
+            0.5,
+            (0, 255, 0),
+            1,
+        )
         
-        vis = np.concatenate((view, mask), axis=0)
+
+        vis = np.concatenate((view, masked), axis=0)
 
         writer.write(vis)
 
     cv2.destroyAllWindows()
     writer.release()
 
-    os.system("ffmpeg -i out/ransac.avi out/ransac.mp4")
+    os.system("ffmpeg -y -i out/ransac.avi out/ransac.mp4")
     os.remove("out/ransac.avi")
 
 

@@ -117,7 +117,7 @@ def main():
             # todo: deal with nan and infinity
 
             img_arr = image.get_data()[:, :, :3]
-            depth_arr = depth.get_data()
+            depth_arr = ransac.clean_depths(depth.get_data())
 
             ransac_output, ransac_coeffs = ransac.ransac(depth_arr, 60, (1, 16), 0.1)
             ransac_output = ransac_output[100:, :]

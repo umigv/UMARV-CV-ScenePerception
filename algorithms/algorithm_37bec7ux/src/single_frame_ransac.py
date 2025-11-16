@@ -40,7 +40,8 @@ f.close()
 # START
 
 start = time.perf_counter()
-ransac_output, ransac_coeffs = ransac.ransac(raw_depths, 60, (1, 16), 0.1)
+cleaned_depths = ransac.clean_depths(raw_depths)
+ransac_output, ransac_coeffs = ransac.ransac(cleaned_depths, 60, (1, 16), 0.1)
 ransac_output = ransac_output[100:, :]
 real = ransac.real_coeffs(ransac_coeffs, w / 2, h / 2, 1057 / 2, 1057 / 2)
 angle = ransac.real_angle(real)

@@ -53,11 +53,15 @@ def mask(depths, coeffs, tol: float):
     return Z < tol
 
 
+def clean_depths(depths):
+    depths = np.where(np.isinf(depths) | np.isnan(depths), -np.inf, depths)
+    return depths
+
+
 # will maintain the dimensions of the original
 def ransac(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
 ):
-    depths = np.where(np.isinf(depths) | np.isnan(depths), -np.inf, depths)
     max_depth = float(depths.max())
     depths = max_depth / depths
     pooled = pool(depths, kernel)
@@ -82,19 +86,19 @@ def ransac(
 
 def hsv_mask(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_white = np.array([0, 0, 200], dtype=np.uint8)
-    upper_white = np.array([180, 40, 255], dtype=np.uint8)
+    lower_white = np.array([0, 0, 180], dtype=np.uint8)
+    upper_white = np.array([180, 50, 255], dtype=np.uint8)
     white_mask = cv2.inRange(image, lower_white, upper_white) > 0
 
     return white_mask
 
 
 def hsv_and_ransac(image, *args):
-    ground_mask, _, _ = ransac(*args)
+    ground_mask, coeffs = ransac(*args)
     lane_mask = hsv_mask(image) & ground_mask
     outlier_mask = ground_mask != 1
 
-    return outlier_mask | lane_mask
+    return outlier_mask | lane_mask, coeffs
 
 
 def real_coeffs(best_coeffs, cx, cy, fx, fy):
@@ -110,5 +114,4 @@ def real_angle(real_coeffs):
     # get the pixel coordinates of the click
     # angle between [0, 0, -1] and [a, b, -1]
     a, b, _ = real_coeffs
-    theta = math.acos(1 / math.hypot(a, b, -1))
-    return math.degrees(theta)
+    return math.acos(1 / math.hypot(a, b, -1))
