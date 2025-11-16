@@ -6,4 +6,4 @@ class CameraIntrinsics:
     cx: float
     cy: float
     fx: float
-    fy: float = fx
+    fy: float
