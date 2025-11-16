@@ -24,7 +24,7 @@ from signal import signal, SIGINT
 import argparse
 import os
 import cv2
-import ransac
+import ransac.plane as plane
 
 cam = sl.Camera()
 
@@ -117,12 +117,12 @@ def main():
             # todo: deal with nan and infinity
 
             img_arr = image.get_data()[:, :, :3]
-            depth_arr = ransac.clean_depths(depth.get_data())
+            depth_arr = plane.clean_depths(depth.get_data())
 
-            ransac_output, ransac_coeffs = ransac.ransac(depth_arr, 60, (1, 16), 0.1)
+            ransac_output, ransac_coeffs = plane.ransac(depth_arr, 60, (1, 16), 0.1)
             ransac_output = ransac_output[100:, :]
-            real = ransac.real_coeffs(ransac_coeffs, w / 2, h / 2, fx_left / 2, fy_left / 2)
-            angle = ransac.real_angle(real)
+            real = plane.real_coeffs(ransac_coeffs, w / 2, h / 2, fx_left / 2, fy_left / 2)
+            angle = plane.real_angle(real)
 
             print(angle)
 

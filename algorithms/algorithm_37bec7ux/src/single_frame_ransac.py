@@ -5,7 +5,7 @@ import skimage  # image filter
 import random
 import time
 import math
-import ransac
+import ransac.plane as plane
 
 # PARAMETERS
 
@@ -40,11 +40,11 @@ f.close()
 # START
 
 start = time.perf_counter()
-cleaned_depths = ransac.clean_depths(raw_depths)
-ransac_output, ransac_coeffs = ransac.ransac(cleaned_depths, 60, (1, 16), 0.1)
+cleaned_depths = plane.clean_depths(raw_depths)
+ransac_output, ransac_coeffs = plane.ransac(cleaned_depths, 60, (1, 16), 0.1)
 ransac_output = ransac_output[100:, :]
-real = ransac.real_coeffs(ransac_coeffs, w / 2, h / 2, 1057 / 2, 1057 / 2)
-angle = ransac.real_angle(real)
+real = plane.real_coeffs(ransac_coeffs, w / 2, h / 2, 1057 / 2, 1057 / 2)
+angle = plane.real_angle(real)
 end = time.perf_counter()
 
 f, axarr = plt.subplots(2, 1)

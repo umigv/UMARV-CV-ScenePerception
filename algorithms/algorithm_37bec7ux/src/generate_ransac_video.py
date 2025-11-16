@@ -1,5 +1,5 @@
 import h5py
-import ransac
+import ransac.plane as plane
 import cv2
 import numpy as np
 import os
@@ -33,9 +33,9 @@ def main():
     for i in range(len(depth_maps) // 1):
         view = color[i][:, : int(color[i].shape[1] / 2)]
 
-        depth_map = ransac.clean_depths(depth_maps[i])
+        depth_map = plane.clean_depths(depth_maps[i])
 
-        masked, c = ransac.hsv_and_ransac(view, depth_map, iters, kernel, tolerance)
+        masked, c = plane.hsv_and_ransac(view, depth_map, iters, kernel, tolerance)
 
         masked = (255 * masked).astype(np.uint8)
         masked = cv2.cvtColor(masked, cv2.COLOR_GRAY2BGR)
@@ -58,8 +58,8 @@ def main():
             (0, 255, 0),
             1,
         )
-        rc = ransac.real_coeffs(c, w / 2, h / 2, 600 / 2, 600 / 2)
-        rad = ransac.real_angle(rc)
+        rc = plane.real_coeffs(c, w / 2, h / 2, 600 / 2, 600 / 2)
+        rad = plane.real_angle(rc)
         masked = cv2.putText(
             masked,
             f"{rc[0]:+.3e} {rc[1]:+.3e} {rc[2]:+.3e}",
