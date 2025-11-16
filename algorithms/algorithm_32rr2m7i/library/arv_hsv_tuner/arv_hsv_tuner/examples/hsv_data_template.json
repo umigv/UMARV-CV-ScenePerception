@@ -1,0 +1,20 @@
+{
+    "<video_path>": {
+        "white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 90,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 137
+        },
+        "yellow": {
+            "h_upper": 179,
+            "h_lower": 6,
+            "s_upper": 194,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 0
+        }
+    }
+}

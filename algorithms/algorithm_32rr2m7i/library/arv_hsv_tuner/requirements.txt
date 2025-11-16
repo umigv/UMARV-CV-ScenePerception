@@ -1,0 +1,74 @@
+opencv-python>=4.5.0
+numpy>=1.19.0
+ultralytics>=8.0.0
+PyQt5>=5.15.0
+```
+
+---
+
+## `MANIFEST.in`
+```
+include README.md
+include LICENSE
+include requirements.txt
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+```
+
+---
+
+## `.gitignore`
+```
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+hsv_values.json
+data/*.pt
+*.MOV
+*.mp4
+*.avi
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
