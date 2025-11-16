@@ -1,18 +1,22 @@
 {
-    "h_upper": 179,
-    "h_lower": 0,
-    "s_upper": 70,
-    "s_lower": 0,
-    "v_upper": 255,
-    "v_lower": 201,
     "data/comp23_6.MOV": {
         "yellow": {
-            "h_upper": 137,
-            "h_lower": 11,
-            "s_upper": 100,
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 255,
             "s_lower": 0,
-            "v_upper": 199,
-            "v_lower": 30
+            "v_upper": 139,
+            "v_lower": 66
+        }
+    },
+    "data/000001.jpg": {
+        "yellow": {
+            "h_upper": 41,
+            "h_lower": 5,
+            "s_upper": 255,
+            "s_lower": 104,
+            "v_upper": 255,
+            "v_lower": 21
         }
     }
 }

@@ -5,8 +5,7 @@ import json
 from ultralytics import YOLO
 
 class hsv:
-    def __init__(self, video_path, filename="hsv_values.json"):
-        self.default_savepath = filename
+    def __init__(self, video_path):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
         self.setup = False
@@ -15,13 +14,13 @@ class hsv:
         self.barrel = True
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO("models/obstacles.pt")
-        self.model = YOLO("models/laneswithcontrast.pt")
+        self.barrel_model =  YOLO("path to obstacles.pt")
+        self.model = YOLO("path to laneswithcontrast.pt")
         self.load_hsv_values()
         
     def load_hsv_values(self):
-        if os.path.exists(self.default_savepath):
-            with open(self.default_savepath, 'r') as file:
+        if os.path.exists('hsv_values.json'):
+            with open('hsv_values.json', 'r') as file:
                 all_hsv_values = json.load(file)
                 self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
         else:
@@ -36,27 +35,13 @@ class hsv:
 
 
     def save_hsv_values(self):
-        # TODO: Let user define target path for hsv_values.
         all_hsv_values = {}
-        if os.path.exists(self.default_savepath):
-            with open(self.default_savepath, 'r') as file:
+        if os.path.exists('hsv_values.json'):
+            with open('hsv_values.json', 'r') as file:
                 all_hsv_values = json.load(file)
         all_hsv_values[str(self.video_path)] = self.hsv_filters
-        with open(self.default_savepath, 'w') as file:
+        with open('hsv_values.json', 'w') as file:
             json.dump(all_hsv_values, file, indent=4)
-
-    def save_single_range(self, name, location=None):
-        if location is None:
-            location = name + ".json"
-
-        if os.path.exists(location):
-            with open(location, "r") as file:
-                color_json = json.load(file)
-        
-        color_json["color_name"] = name
-        color_json[str(self.video_path)] = self.hsv_filters[name]
-        with open(location, "w") as file:
-            json.dump(color_json, file, indent=4)
 
     def h_upper_callback(self, value):
         self.h_upper = value
@@ -136,8 +121,8 @@ class hsv:
         return barrel_mask
 
     def clear_filter(self, filter_name):
-        if os.path.exists(self.default_savepath):
-            with open(self.default_savepath, 'r') as file:
+        if os.path.exists('hsv_values.json'):
+            with open('hsv_values.json', 'r') as file:
                 all_hsv_values = json.load(file)
 
             if self.video_path in all_hsv_values:
@@ -147,7 +132,7 @@ class hsv:
                     if not all_hsv_values[self.video_path]:
                         del all_hsv_values[self.video_path]
 
-                    with open(self.default_savepath, 'w') as file:
+                    with open('hsv_values.json', 'w') as file:
                         json.dump(all_hsv_values, file, indent=4)
                     print(f"Filter '{filter_name}' cleared for video '{self.video_path}'.")
                 else:
@@ -177,8 +162,7 @@ class hsv:
         table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
         self.image = cv2.LUT(self.image, table)
         
-    def tune(self, filter_name, image_mode=False):
-        print("tune called")
+    def tune(self, filter_name):
         if filter_name not in self.hsv_filters:
             # Initialize default values for the new filter
             self.hsv_filters[filter_name] = {
@@ -188,18 +172,12 @@ class hsv:
             }
         filter_values = self.hsv_filters[filter_name]
         self.setup = True
-        if not image_mode:
-            cap = cv2.VideoCapture(self.video_path)
-            if not cap.isOpened():
-                print(f"Error: Unable to open video file {self.video_path}")
-                return
-        else:
-            print("reading image")
-            cap = cv2.imread(self.video_path)
+        cap = cv2.VideoCapture(self.video_path)
+        if not cap.isOpened():
+            print(f"Error: Unable to open video file {self.video_path}")
+            return
 
-
-        #TODO: UI sucks on MAC, fix this slider for all users.
-        cv2.namedWindow('control pannel',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('control pannel')
         cv2.createTrackbar('H_upper', 'control pannel', filter_values['h_upper'], 179,
                            lambda v: self.__update_filter(filter_name, 'h_upper', v))
         cv2.createTrackbar('H_lower', 'control pannel', filter_values['h_lower'], 179,
@@ -214,45 +192,30 @@ class hsv:
                            lambda v: self.__update_filter(filter_name, 'v_lower', v))
         cv2.createTrackbar('Done Tuning', 'control pannel', 0, 1, self.on_button_click)
 
-        if not image_mode:
-            while self.setup:
-                ret, frame = cap.read()
-                if not ret:
-                    # If the video ends, reset to the beginning
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    continue
-                self.image = frame
-                self.adjust_gamma()
-                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-                mask, dict = self.update_mask()
+        while self.setup:
+            ret, frame = cap.read()
+            if not ret:
+                # If the video ends, reset to the beginning
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+            self.image = frame
+            self.adjust_gamma()
+            self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+            mask, dict = self.update_mask()
 
-                cv2.imshow('Video', frame)
-                cv2.imshow('Mask', dict[filter_name])
+            cv2.imshow('Video', frame)
+            cv2.imshow('Mask', dict[filter_name])
 
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:  # Press 'Esc' to exit the loop
-                    break
-        else:
-            while self.setup:
-                self.image = cap
-                self.adjust_gamma()
-                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-                mask, dict = self.update_mask()
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:  # Press 'Esc' to exit the loop
+                break
 
-                cv2.imshow("Image", cap)
-                cv2.imshow("Mask", dict[filter_name])
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:
-                    break
-        if not image_mode:
-          cap.release() 
+        cap.release()
         cv2.destroyAllWindows()
         self.save_hsv_values()
 
     def get_lane_lines_YOLO(self):
         # Get the driveable area of one frame and return the inverted mask
-        # Custom only for lane lines !
         results = self.model.predict(self.image, conf=0.7)[0]
         laneline_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
         if(results.masks is not None):
@@ -296,7 +259,7 @@ class hsv:
         # print(combined_mask.shape)
         
         barrels = self.get_barrels_YOLO()
-        combined_mask = cv2.bitwise_or(combined_mask, barrels)
+        combined = cv2.bitwise_or(combined, barrels)
         return combined_mask, masks
         
     def get_mask(self, frame):
