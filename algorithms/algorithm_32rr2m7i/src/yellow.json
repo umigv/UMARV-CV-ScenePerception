@@ -7,5 +7,13 @@
         "s_lower": 0,
         "v_upper": 139,
         "v_lower": 66
+    },
+    "data/000001.jpg": {
+        "h_upper": 116,
+        "h_lower": 49,
+        "s_upper": 255,
+        "s_lower": 104,
+        "v_upper": 255,
+        "v_lower": 21
     }
 }

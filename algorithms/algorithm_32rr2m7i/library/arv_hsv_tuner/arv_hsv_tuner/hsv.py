@@ -16,13 +16,13 @@ class hsv:
         self.tuned_hsv_path = tuned_hsv_path
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO(f"{barrel_model_path}")
-        self.model = YOLO(f"{lane_model_path}")
+        self.barrel_model =  YOLO(barrel_model_path)
+        self.model = YOLO(lane_model_path)
         self.load_hsv_values()
         
     def load_hsv_values(self):
-        if os.path.exists(f'{self.tuned_hsv_path}'):
-            with open(f'{self.tuned_hsv_path}', 'r') as file:
+        if os.path.exists(self.tuned_hsv_path):
+            with open(self.tuned_hsv_path, 'r') as file:
                 all_hsv_values = json.load(file)
                 self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
         else:
@@ -38,12 +38,25 @@ class hsv:
 
     def save_hsv_values(self):
         all_hsv_values = {}
-        if os.path.exists(f'{self.tuned_hsv_path}'):
-            with open(f'{self.tuned_hsv_path}', 'r') as file:
+        if os.path.exists(self.tuned_hsv_path):
+            with open(self.tuned_hsv_path, 'r') as file:
                 all_hsv_values = json.load(file)
         all_hsv_values[str(self.video_path)] = self.hsv_filters
-        with open(f'{self.tuned_hsv_path}', 'w') as file:
+        with open(self.tuned_hsv_path, 'w') as file:
             json.dump(all_hsv_values, file, indent=4)
+
+    def save_single_range(self, name, location=None):
+        if location is None:
+            location = name + ".json"
+
+        if os.path.exists(location):
+            with open(location, "r") as file:
+                color_json = json.load(file)
+        
+        color_json["color_name"] = name
+        color_json[str(self.video_path)] = self.hsv_filters[name]
+        with open(location, "w") as file:
+            json.dump(color_json, file, indent=4)
 
     def h_upper_callback(self, value):
         self.h_upper = value
@@ -123,8 +136,8 @@ class hsv:
         return barrel_mask
 
     def clear_filter(self, filter_name):
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(self.tuned_hsv_path):
+            with open(self.tuned_hsv_path, 'r') as file:
                 all_hsv_values = json.load(file)
 
             if self.video_path in all_hsv_values:
@@ -134,7 +147,7 @@ class hsv:
                     if not all_hsv_values[self.video_path]:
                         del all_hsv_values[self.video_path]
 
-                    with open('hsv_values.json', 'w') as file:
+                    with open(self.tuned_hsv_path, 'w') as file:
                         json.dump(all_hsv_values, file, indent=4)
                     print(f"Filter '{filter_name}' cleared for video '{self.video_path}'.")
                 else:
@@ -164,7 +177,7 @@ class hsv:
         table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
         self.image = cv2.LUT(self.image, table)
         
-    def tune(self, filter_name):
+    def tune(self, filter_name, image_mode=False):
         # GUI adaptation to use Qt, instead of OpenCV's library.
         try:
             from arv_hsv_tuner.qt_tuner import tune_with_qt
@@ -181,11 +194,15 @@ class hsv:
             }
         filter_values = self.hsv_filters[filter_name]
         self.setup = True
-        cap = cv2.VideoCapture(self.video_path)
-        if not cap.isOpened():
-            print(f"Error: Unable to open video file {self.video_path}")
-            return
-        
+        if not image_mode:
+            cap = cv2.VideoCapture(self.video_path)
+            if not cap.isOpened():
+                print(f"Error: Unable to open video file {self.video_path}")
+                return
+        else:
+            print("reading image")
+            cap = cv2.imread(self.video_path)
+
 
         #TODO: UI sucks on MAC, fix this slider for all users.
         cv2.namedWindow('control pannel',cv2.WINDOW_NORMAL)
@@ -203,25 +220,39 @@ class hsv:
                            lambda v: self.__update_filter(filter_name, 'v_lower', v))
         cv2.createTrackbar('Done Tuning', 'control pannel', 0, 1, self.on_button_click)
 
-        while self.setup:
-            ret, frame = cap.read()
-            if not ret:
-                # If the video ends, reset to the beginning
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                continue
-            self.image = frame
-            self.adjust_gamma()
-            self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-            mask, dict = self.update_mask()
+        if not image_mode:
+            while self.setup:
+                ret, frame = cap.read()
+                if not ret:
+                    # If the video ends, reset to the beginning
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    continue
+                self.image = frame
+                self.adjust_gamma()
+                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+                mask, dict = self.update_mask()
 
-            cv2.imshow('Video', frame)
-            cv2.imshow('Mask', dict[filter_name])
+                cv2.imshow('Video', frame)
+                cv2.imshow('Mask', dict[filter_name])
 
-            key = cv2.waitKey(1) & 0xFF
-            if key == 27:  # Press 'Esc' to exit the loop
-                break
+                key = cv2.waitKey(1) & 0xFF
+                if key == 27:  # Press 'Esc' to exit the loop
+                    break
+        else:
+            while self.setup:
+                self.image = cap
+                self.adjust_gamma()
+                self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+                mask, dict = self.update_mask()
 
-        cap.release()
+                cv2.imshow("Image", cap)
+                cv2.imshow("Mask", dict[filter_name])
+
+                key = cv2.waitKey(1) & 0xFF
+                if key == 27:
+                    break
+        if not image_mode:
+          cap.release() 
         cv2.destroyAllWindows()
         self.save_hsv_values()
 
