@@ -1,7 +1,7 @@
 """Qt-based multi-view mask viewer for post-processing with live console"""
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QGridLayout, QPushButton,
-                             QTextEdit, QSplitter)
+                             QTextEdit, QSplitter,QCheckBox)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QTextCursor, QFont
 import cv2
@@ -62,9 +62,10 @@ class ConsoleWidget(QTextEdit):
 class MaskViewerWindow(QMainWindow):
     """Qt window to display all masks in a grid layout with live console"""
     
-    def __init__(self, hsv_instance):
+    def __init__(self, hsv_instance, image_mode=False):
         super().__init__()
         self.hsv = hsv_instance
+        self.image_mode = image_mode  # NEW
         self.cap = None
         self.timer = QTimer()
         
@@ -76,7 +77,8 @@ class MaskViewerWindow(QMainWindow):
         self.last_detections = {}
         
         self.setup_ui()
-        self.timer.timeout.connect(self.update_frame)
+        if not image_mode:
+            self.timer.timeout.connect(self.update_frame)
         
     def setup_ui(self):
         self.setWindowTitle("ARV HSV Viewer - All Masks")
@@ -154,7 +156,25 @@ class MaskViewerWindow(QMainWindow):
         self.btn_quit = QPushButton("✕ Close")
         self.btn_quit.clicked.connect(self.close)
         button_layout.addWidget(self.btn_quit)
+
+        # NEW: YOLO Controls
+    
+        yolo_label = QLabel("YOLO Models:")
+        yolo_label.setStyleSheet("color: #888; padding: 0 10px;")
+        button_layout.addWidget(yolo_label)
         
+        self.checkbox_lane_yolo = QCheckBox("Lane Lines")
+        self.checkbox_lane_yolo.setStyleSheet("color: white;")
+        self.checkbox_lane_yolo.setChecked(False)  # Start disabled
+        self.checkbox_lane_yolo.stateChanged.connect(self.toggle_lane_yolo)
+        button_layout.addWidget(self.checkbox_lane_yolo)
+        
+        self.checkbox_barrel_yolo = QCheckBox("Barrels")
+        self.checkbox_barrel_yolo.setStyleSheet("color: white;")
+        self.checkbox_barrel_yolo.setChecked(False)  # Start disabled
+        self.checkbox_barrel_yolo.stateChanged.connect(self.toggle_barrel_yolo)
+        button_layout.addWidget(self.checkbox_barrel_yolo)
+            
         # Stats
         self.stats_label = QLabel("Frame: 0 | Detections: --")
         self.stats_label.setStyleSheet("color: #888;")
@@ -183,6 +203,26 @@ class MaskViewerWindow(QMainWindow):
             QPushButton:hover { background-color: #14a085; }
             QPushButton:pressed { background-color: #0a5f63; }
         """)
+
+    def toggle_lane_yolo(self, state):
+        """Toggle lane line YOLO model"""
+        enabled = (state == Qt.Checked)
+        self.hsv.set_yolo_usage(lane=enabled, barrel=self.hsv.use_barrel_yolo)
+        self.console.log(f"Lane YOLO: {'ENABLED' if enabled else 'DISABLED'}", "INFO")
+        
+        # Refresh display in image mode
+        if self.image_mode:
+            self.display_static_image()
+    
+    def toggle_barrel_yolo(self, state):
+        """Toggle barrel YOLO model"""
+        enabled = (state == Qt.Checked)
+        self.hsv.set_yolo_usage(lane=self.hsv.use_lane_yolo, barrel=enabled)
+        self.console.log(f"Barrel YOLO: {'ENABLED' if enabled else 'DISABLED'}", "INFO")
+        
+        # Refresh display in image mode
+        if self.image_mode:
+            self.display_static_image()
     
     def create_video_label(self, title):
         """Create a labeled video display widget"""
@@ -234,37 +274,111 @@ class MaskViewerWindow(QMainWindow):
                 row += 1
     
     def start(self):
-        """Initialize video capture and start playback"""
-        self.cap = cv2.VideoCapture(self.hsv.video_path)
-        if not self.cap.isOpened():
-            self.console.log(f"Unable to open video: {self.hsv.video_path}", "ERROR")
-            return False
+        """Initialize video/image capture and start playback"""
+        if self.image_mode:
+            # Load single image
+            frame = cv2.imread(self.hsv.video_path)
+            if frame is None:
+                self.console.log(f"Unable to open image: {self.hsv.video_path}", "ERROR")
+                return False
+            
+            self.current_frame = frame
+            self.console.log(f"Image loaded: {self.hsv.video_path}", "INFO")
+            self.console.log(f"Image size: {frame.shape[1]}x{frame.shape[0]}", "INFO")
+            self.console.log(f"Active filters: {list(self.hsv.hsv_filters.keys())}", "INFO")
+            self.console.log("YOLO models: DISABLED (toggle via checkboxes)", "INFO")
+            
+            # Setup mask labels
+            self.setup_mask_labels(list(self.hsv.hsv_filters.keys()))
+            
+            # Display static image
+            self.display_static_image()
+            
+            self.paused = False
+            return True
+        else:
+            # Video mode (existing code)
+            self.cap = cv2.VideoCapture(self.hsv.video_path)
+            if not self.cap.isOpened():
+                self.console.log(f"Unable to open video: {self.hsv.video_path}", "ERROR")
+                return False
+            
+            native_fps = self.cap.get(cv2.CAP_PROP_FPS)
+            if native_fps <= 0 or native_fps > 240:
+                native_fps = 30
+            
+            self.console.log(f"Video loaded: {self.hsv.video_path}", "INFO")
+            self.console.log(f"Native FPS: {native_fps:.1f}", "INFO")
+            self.console.log(f"Active filters: {list(self.hsv.hsv_filters.keys())}", "INFO")
+            self.console.log("YOLO models: DISABLED (toggle via checkboxes)", "INFO")
+            self.console.log("Starting playback...", "INFO")
+            
+            # Setup mask labels based on available filters
+            self.setup_mask_labels(list(self.hsv.hsv_filters.keys()))
+            
+            # Start timer (1ms for maximum throughput)
+            self.timer.start(1)
+            self.paused = False
+            
+            # FPS tracking
+            self.frame_times = []
+            self.last_fps_time = cv2.getTickCount()
+            self.total_frames = 0
+            
+            return True
         
-        native_fps = self.cap.get(cv2.CAP_PROP_FPS)
-        if native_fps <= 0 or native_fps > 240:
-            native_fps = 30
+    def display_static_image(self):
+        """Display static image with all masks"""
+        frame = self.current_frame.copy()
         
-        self.console.log(f"Video loaded: {self.hsv.video_path}", "INFO")
-        self.console.log(f"Native FPS: {native_fps:.1f}", "INFO")
-        self.console.log(f"Active filters: {list(self.hsv.hsv_filters.keys())}", "INFO")
-        self.console.log("Starting detection monitoring...", "INFO")
+        # Get all masks
+        try:
+            combined_mask, masks = self.hsv.get_mask(frame)
+            
+            # Extract detection info
+            detections = self.parse_yolo_detections()
+            
+            # Log detections
+            if detections:
+                det_str = ", ".join([f"{k}: {v}" for k, v in detections.items()])
+                self.console.log(f"🎯 Detections: {det_str}", "DETECT")
+            else:
+                self.console.log("No detections", "DETECT")
+            
+            # Update stats
+            det_count = sum(detections.values()) if detections else 0
+            self.stats_label.setText(f"Image | Detections: {det_count}")
+            
+        except Exception as e:
+            self.console.log(f"Error in get_mask: {e}", "ERROR")
+            return
         
-        # Setup mask labels based on available filters
-        self.setup_mask_labels(list(self.hsv.hsv_filters.keys()))
+        # Display original frame
+        self.display_image(frame, self.video_labels['original'].display_label)
         
-        # Start timer (1ms for maximum throughput)
-        self.timer.start(1)
-        self.paused = False
+        # Display combined mask
+        if len(combined_mask.shape) == 2:
+            combined_bgr = cv2.cvtColor(combined_mask, cv2.COLOR_GRAY2BGR)
+        else:
+            combined_bgr = combined_mask
+        self.display_image(combined_bgr, self.video_labels['combined'].display_label)
         
-        # FPS tracking
-        self.frame_times = []
-        self.last_fps_time = cv2.getTickCount()
-        self.total_frames = 0
-        
-        return True
+        # Display individual masks
+        for mask_name, mask in masks.items():
+            if mask_name in self.mask_labels:
+                if len(mask.shape) == 2:
+                    mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+                else:
+                    mask_bgr = mask
+                self.display_image(mask_bgr, self.mask_labels[mask_name].display_label)
+    
     
     def toggle_pause(self):
         """Toggle pause/play"""
+        if self.image_mode:
+            self.console.log("Pause/Play not available in image mode", "INFO")
+            return
+        
         if self.paused:
             self.timer.start()
             self.btn_pause.setText("⏸ Pause")
@@ -280,14 +394,20 @@ class MaskViewerWindow(QMainWindow):
         """Extract detection info from YOLO models"""
         detections = {}
         
-        # Get barrel detections
-        if self.hsv.barrel and hasattr(self.hsv, 'barrel_boxes') and self.hsv.barrel_boxes is not None:
-            barrel_count = len(self.hsv.barrel_boxes)
-            if barrel_count > 0:
-                detections['barrels'] = barrel_count
+        # Get barrel detections (only if enabled)
+        if self.hsv.use_barrel_yolo:
+            if hasattr(self.hsv, 'barrel_boxes') and self.hsv.barrel_boxes is not None:
+                barrel_count = len(self.hsv.barrel_boxes)
+                if barrel_count > 0:
+                    detections['barrels'] = barrel_count
         
-        # Check if lane model has detections
-        # (You might need to expose this info from your hsv class)
+        # Get lane detections (only if enabled)
+        # Get lane line detections (only if enabled)
+        if self.hsv.use_lane_yolo:
+            if hasattr(self.hsv, 'lane_masks') and self.hsv.lane_masks is not None:
+                lane_count = len(self.hsv.lane_masks)
+                if lane_count > 0:
+                    detections['lane_lines'] = lane_count
         
         return detections
     
@@ -322,11 +442,17 @@ class MaskViewerWindow(QMainWindow):
             # Extract detection info
             detections = self.parse_yolo_detections()
             
-            # Log detection changes
+            # Log detection changes with YOLO status
             if detections != self.last_detections:
                 if detections:
                     det_str = ", ".join([f"{k}: {v}" for k, v in detections.items()])
-                    self.console.log(f"Detections: {det_str}", "DETECT")
+                    yolo_status = []
+                    if self.hsv.use_lane_yolo:
+                        yolo_status.append("Lane✓")
+                    if self.hsv.use_barrel_yolo:
+                        yolo_status.append("Barrel✓")
+                    status = f" [{', '.join(yolo_status)}]" if yolo_status else ""
+                    self.console.log(f"🎯 Detections: {det_str}{status}", "DETECT")
                 else:
                     self.console.log("No detections", "DETECT")
                 
@@ -420,7 +546,7 @@ class MaskViewerWindow(QMainWindow):
         event.accept()
 
 
-def view_all_masks(hsv_instance):
+def view_all_masks(hsv_instance, image_mode=False):
     """
     Launch Qt viewer to display all masks in real-time with detection console
     
@@ -447,12 +573,13 @@ def view_all_masks(hsv_instance):
         if platform.system() == "Darwin":
             app.setAttribute(Qt.AA_UseHighDpiPixmaps, False)
     
-    window = MaskViewerWindow(hsv_instance)
+    window = MaskViewerWindow(hsv_instance, image_mode=image_mode)
     if window.start():
         window.show()
         
+        mode_text = "Image" if image_mode else "Video"
         print("\n" + "="*60)
-        print("Multi-Mask Viewer Started")
+        print(f"Multi-Mask Viewer Started ({mode_text} Mode)")
         print("="*60)
         print("Features:")
         print("  • Multi-view video display (original + all masks)")

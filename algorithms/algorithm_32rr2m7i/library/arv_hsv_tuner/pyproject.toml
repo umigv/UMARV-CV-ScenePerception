@@ -33,18 +33,21 @@ dependencies = [
     "opencv-python>=4.5.0",
     "numpy>=1.19.0",
     "ultralytics>=8.0.0",
+    "PyQt5>=5.15.0",  # ← MOVED HERE (now required)
 ]
 
 [project.optional-dependencies]
-qt = ["PyQt5>=5.15.0"]
 dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",
     "flake8>=6.0.0",
 ]
 
-[project.urls] # TODO
-
+[project.urls]
+Homepage = "https://github.com/yourusername/arv-hsv-tuner"
+Documentation = "https://github.com/yourusername/arv-hsv-tuner#readme"
+Repository = "https://github.com/yourusername/arv-hsv-tuner"
+Issues = "https://github.com/yourusername/arv-hsv-tuner/issues"
 
 [tool.setuptools.packages.find]
 include = ["arv_hsv_tuner*"]

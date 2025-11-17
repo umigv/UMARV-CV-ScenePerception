@@ -5,7 +5,6 @@ import json
 from ultralytics import YOLO
 
 class hsv:
-    # TODO: Image support for type and mode.
     def __init__(self, video_path,barrel_model_path,lane_model_path,tuned_hsv_path):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
@@ -18,6 +17,8 @@ class hsv:
         self.barrel_mask = None
         self.barrel_model =  YOLO(barrel_model_path)
         self.model = YOLO(lane_model_path)
+        self.use_lane_yolo = False  # Toggle lane YOLO
+        self.use_barrel_yolo = False  # Toggle barrel YOLO
         self.load_hsv_values()
         
     def load_hsv_values(self):
@@ -34,6 +35,18 @@ class hsv:
                 'v_upper': 255, 'v_lower': 137
             }
             # print(self.hsv_filters)
+
+    def set_yolo_usage(self, lane=False, barrel=False):
+        """
+        Control which YOLO models are used in update_mask
+        
+        Args:
+            lane: Enable/disable lane line YOLO model
+            barrel: Enable/disable barrel detection YOLO model
+        """
+        self.use_lane_yolo = lane
+        self.use_barrel_yolo = barrel
+        print(f"YOLO usage updated: Lane={lane}, Barrel={barrel}")
 
 
     def save_hsv_values(self):
@@ -179,11 +192,13 @@ class hsv:
         
     def tune(self, filter_name, image_mode=False):
         # GUI adaptation to use Qt, instead of OpenCV's library.
+        # Two modes, image or video. 
         try:
             from arv_hsv_tuner.qt_tuner import tune_with_qt
-            return tune_with_qt(self, filter_name)
+            tune_with_qt(self, filter_name,image_mode=image_mode)
+            return 
         except (ImportError, Exception):
-            pass  # Fall back to OpenCV GUI
+            print("Unable to run Qt.")
 
         if filter_name not in self.hsv_filters:
             # Initialize default values for the new filter
@@ -203,8 +218,6 @@ class hsv:
             print("reading image")
             cap = cv2.imread(self.video_path)
 
-
-        #TODO: UI sucks on MAC, fix this slider for all users.
         cv2.namedWindow('control pannel',cv2.WINDOW_NORMAL)
         cv2.createTrackbar('H_upper', 'control pannel', filter_values['h_upper'], 179,
                            lambda v: self.__update_filter(filter_name, 'h_upper', v))
@@ -262,6 +275,7 @@ class hsv:
         results = self.model.predict(self.image, conf=0.7)[0]
         laneline_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
         if(results.masks is not None):
+            self.lane_masks = results.masks.xy  # Store for detection counting
             for i in range(len(results.masks.xy)):
                     segment = results.masks.xy[i]
                     segment_array = np.array([segment], dtype=np.int32)
@@ -285,7 +299,7 @@ class hsv:
                 if cv2.contourArea(cnt) > min_area:
                     cv2.drawContours(final, [cnt], -1, 255, thickness=cv2.FILLED)
 
-            if filter_name == "white":
+            if filter_name == "white" and self.use_lane_yolo:
                 lane_line_mask = self.get_lane_lines_YOLO()
                 final = cv2.bitwise_or(final, lane_line_mask)
             # Combine masks
@@ -296,7 +310,7 @@ class hsv:
 
             masks[filter_name] = final
 
-        if self.barrel:
+        if self.use_barrel_yolo:
             barrels = self.get_barrels_YOLO()
             combined_mask = cv2.bitwise_or(combined_mask, barrels)
         # print(combined_mask.shape)
@@ -311,7 +325,7 @@ class hsv:
         self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
         return self.update_mask()
     
-    def post_processing_all_mask(self):
+    def post_processing_all_mask(self,image_mode=False):
         """
         After tuning a specific hsv mask, it will show N feeds.
         2 will be original and combined (Yolo lines + barrels + N masks)
@@ -319,7 +333,6 @@ class hsv:
         """
         try:
             from arv_hsv_tuner.qt_viewer import view_all_masks
-            view_all_masks(self)
+            view_all_masks(self, image_mode=image_mode)
         except ImportError:
             print("Error: PyQt5 not installed. Install with: pip install PyQt5")
-            #self._post_processing_opencv() // Will not add for now.

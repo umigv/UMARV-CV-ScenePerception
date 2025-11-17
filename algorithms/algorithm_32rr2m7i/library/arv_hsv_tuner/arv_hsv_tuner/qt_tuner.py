@@ -12,20 +12,21 @@ import platform
 class QtTunerWindow(QMainWindow):
     """Qt window for HSV parameter tuning"""
     
-    def __init__(self, hsv_instance, filter_name):
+    def __init__(self, hsv_instance, filter_name, image_mode=False):
         super().__init__()
         self.hsv = hsv_instance
         self.filter_name = filter_name
+        self.image_mode = image_mode  # NEW
         self.cap = None
         self.timer = QTimer()
         
         # State tracking
-        self.is_dragging = False  # Track if user is dragging a slider
-        self.current_frame = None  # Store current frame for redraw during drag
-        self.current_mask = None   # Store current mask for redraw during drag
-
-        # Frame skipping for performance
-        self.frame_skip = 2  # Process every 2nd frame (skip 1)
+        self.is_dragging = False
+        self.current_frame = None
+        self.current_mask = None
+        
+        # NEW: Frame skipping (only for video mode)
+        self.frame_skip = 2
         self.frame_counter = 0
         
         if filter_name not in self.hsv.hsv_filters:
@@ -39,7 +40,8 @@ class QtTunerWindow(QMainWindow):
         self.timer.timeout.connect(self.update_frame)
         
     def setup_ui(self):
-        self.setWindowTitle(f"ARV HSV Tuner - {self.filter_name}")
+        mode_text = "Image" if self.image_mode else "Video"
+        self.setWindowTitle(f"ARV HSV Tuner - {self.filter_name} ({mode_text} Mode)")
         self.setGeometry(100, 100, 1400, 800)
         
         # M1 optimization
@@ -269,14 +271,17 @@ class QtTunerWindow(QMainWindow):
         self.timer.start()
     
     def on_slider_change(self, param, value):
-        """Update HSV filter values and redraw mask ONLY"""
+        """Update HSV filter values and redraw"""
         # Update the filter value
         self.hsv.hsv_filters[self.filter_name][param] = value
         
-        # If we're dragging, update the mask display ONLY (freeze video)
-        if self.is_dragging and self.current_frame is not None:
-            # Reprocess the FROZEN frame with new HSV values
-            self.process_and_display_frozen_frame()
+        if self.image_mode:
+            # Image mode: Update immediately
+            self.display_static_image()
+        else:
+            # Video mode: Only update if dragging
+            if self.is_dragging and self.current_frame is not None:
+                self.process_and_display_frozen_frame()
     
     def process_and_display_frozen_frame(self):
         """Process the frozen frame with updated HSV values"""
@@ -316,29 +321,92 @@ class QtTunerWindow(QMainWindow):
         self.current_mask = current_mask
     
     def start(self):
-        """Initialize video capture"""
-        self.cap = cv2.VideoCapture(self.hsv.video_path)
-        if not self.cap.isOpened():
-            print(f"Error: Unable to open video file {self.hsv.video_path}")
-            return False
+        """Initialize video/image capture"""
+        if self.image_mode:
+            # Load single image
+            frame = cv2.imread(self.hsv.video_path)
+            if frame is None:
+                print(f"Error: Unable to open image file {self.hsv.video_path}")
+                return False
+            
+            self.current_frame = frame
+            print(f"Image loaded: {self.hsv.video_path}")
+            print(f"Image size: {frame.shape[1]}x{frame.shape[0]}")
+            print(f"Image mode: Static image tuning")
+            
+            self.hsv.setup = True
+            
+            # Display the image once
+            self.display_static_image()
+            
+            # No timer needed for static image - only update on slider change
+            return True
+        else:
+            # Video mode (existing code)
+            self.cap = cv2.VideoCapture(self.hsv.video_path)
+            if not self.cap.isOpened():
+                print(f"Error: Unable to open video file {self.hsv.video_path}")
+                return False
+            
+            native_fps = self.cap.get(cv2.CAP_PROP_FPS)
+            if native_fps <= 0 or native_fps > 240:
+                native_fps = 30
+            
+            print(f"Video loaded: {self.hsv.video_path}")
+            print(f"Native FPS: {native_fps:.1f}")
+            print(f"Running full pipeline (HSV + morphology + YOLO)")
+            
+            self.hsv.setup = True
+            
+            # Start timer at 30 FPS
+            self.timer.start(33)
+            
+            return True
         
-        native_fps = self.cap.get(cv2.CAP_PROP_FPS)
-        if native_fps <= 0 or native_fps > 240:
-            native_fps = 30
+    def display_static_image(self):
+        """Display static image with current HSV settings"""
+        frame = self.current_frame.copy()
         
-        print(f"Video loaded: {self.hsv.video_path}")
-        print(f"Native FPS: {native_fps:.1f}")
-        print(f"Running full pipeline (HSV + morphology + YOLO)")
+        # Process image
+        self.hsv.image = frame
         
-        self.hsv.setup = True
+        try:
+            self.hsv.adjust_gamma()
+        except Exception as e:
+            print(f"Warning: adjust_gamma failed: {e}")
         
-        # Start timer at 30 FPS
-        self.timer.start(33)
+        self.hsv.hsv_image = cv2.cvtColor(self.hsv.image, cv2.COLOR_BGR2HSV)
         
-        return True
+        # Get mask
+        try:
+            combined_mask, mask_dict = self.hsv.update_mask()
+            
+            if self.filter_name in mask_dict:
+                current_mask = mask_dict[self.filter_name]
+            else:
+                current_mask = combined_mask if combined_mask is not None else np.zeros_like(self.hsv.hsv_image[:,:,0])
+                
+        except Exception as e:
+            print(f"Error in update_mask: {e}")
+            values = self.hsv.hsv_filters[self.filter_name]
+            lower = np.array([values['h_lower'], values['s_lower'], values['v_lower']])
+            upper = np.array([values['h_upper'], values['s_upper'], values['v_upper']])
+            current_mask = cv2.inRange(self.hsv.hsv_image, lower, upper)
+        
+        # Display
+        self.display_image(frame, self.label_video)
+        
+        if len(current_mask.shape) == 2:
+            mask_bgr = cv2.cvtColor(current_mask, cv2.COLOR_GRAY2BGR)
+        else:
+            mask_bgr = current_mask
+        self.display_image(mask_bgr, self.label_mask)
     
     def update_frame(self):
         """Process and display video frame with frame skipping"""
+        if self.image_mode:
+            return  # No-op for image mode
+        
         # Increment frame counter
         self.frame_counter += 1
         
@@ -444,7 +512,7 @@ class QtTunerWindow(QMainWindow):
     def closeEvent(self, event):
         """Cleanup when window closes"""
         self.timer.stop()
-        if self.cap:
+        if self.cap and not self.image_mode:
             self.cap.release()
         self.hsv.setup = False
         
@@ -458,14 +526,18 @@ class QtTunerWindow(QMainWindow):
         event.accept()
 
 
-def tune_with_qt(hsv_instance, filter_name):
+def tune_with_qt(hsv_instance, filter_name, image_mode=False):
     """
     Launch Qt-based tuning interface
     
-    Behavior matches original OpenCV implementation:
-    - Video freezes while dragging sliders
-    - Mask updates in real-time during drag
-    - Video resumes when slider is released
+    Args:
+        hsv_instance: Instance of hsv class
+        filter_name: Name of filter to tune
+        image_mode: If True, tune on static image instead of video
+    
+    Behavior:
+    - Video mode: Video plays and loops, freezes while dragging sliders
+    - Image mode: Static image, updates immediately on slider change
     """
     import os
     
@@ -481,7 +553,7 @@ def tune_with_qt(hsv_instance, filter_name):
         if platform.system() == "Darwin":
             app.setAttribute(Qt.AA_UseHighDpiPixmaps, False)
     
-    window = QtTunerWindow(hsv_instance, filter_name)
+    window = QtTunerWindow(hsv_instance, filter_name, image_mode=image_mode)
     if window.start():
         window.show()
         app.exec_()
