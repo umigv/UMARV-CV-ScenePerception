@@ -1,15 +1,15 @@
 import h5py
-import ransac
+import ransac.plane
 import cv2
 import numpy as np
 import os
 import math
 
-iters = 200
+iters = 50
 kernel = (1, 16)  # kernel is rows, columns
 tolerance = 0.14
 
-filename = "res/perspective_test.svo2.hdf5"
+filename = "res/19_11_10.hdf5" #"res/perspective_test.svo2.hdf5"
 fourcc = cv2.VideoWriter_fourcc(*"XVID")
 
 

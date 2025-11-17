@@ -26,7 +26,7 @@ def sample(pooled):
         for i in range(3):
             row = -1
             col = -1
-            while row < 0 or np.isneginf(pooled[row][col]):
+            while row < 0 or pooled[row][col] < 0:
                 row = random.randint(0, h - 1)
                 col = random.randint(0, w - 1)
             A[i] = [float(col), float(row), 1.0]
@@ -46,7 +46,7 @@ def metric(pooled, coeffs, tol: float):
     ys, xs = np.indices((h, w))
     z_pred = c1 * xs + c2 * ys + c3
     err = np.abs(z_pred - pooled)
-    return np.count_nonzero(err < tol)
+    return np.count_nonzero((pooled > 0) & (err < tol))
 
 
 def mask(depths, coeffs, tol: float):
@@ -91,20 +91,19 @@ def ground_plane(
 
 def hsv_mask(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_white = np.array([0, 0, 180], dtype=np.uint8)
-    upper_white = np.array([180, 50, 255], dtype=np.uint8)
-    white_mask = cv2.inRange(image, lower_white, upper_white) > 0
-
-    return white_mask
-
+    lower_white = np.array([0, 0, 200], dtype=np.uint8)
+    upper_white = np.array([255, 50, 255], dtype=np.uint8)
+    return cv2.inRange(image, lower_white, upper_white)
 
 def hsv_and_ransac(image, *args):
     ground_mask, coeffs = ground_plane(*args)
     lane_mask = hsv_mask(image) & ground_mask
 
+    # TODO! open/close holes
+
     return ground_mask & (lane_mask != 1), coeffs
 
-# re-derive, cx-px should be px-cx
+# re-derive? cx-px should be px-cx
 
 def real_coeffs(best_coeffs, intrinsics: CameraIntrinsics):
     c1, c2, c3 = best_coeffs
