@@ -24,7 +24,7 @@ from signal import signal, SIGINT
 import argparse
 import os
 import cv2
-import ransac
+import ransac.occu, ransac.plane
 
 cam = sl.Camera()
 
@@ -102,6 +102,7 @@ def main():
 
     print(f"Stereo Baseline (tx): {tx:.6f} meters")
 
+    # potentially, need to tune these
     intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx_left / 2, fy_left / 2)
 
     image = sl.Mat()

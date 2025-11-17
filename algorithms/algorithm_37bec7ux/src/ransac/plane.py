@@ -1,6 +1,6 @@
 # ground plane mask creation
 
-import ransac
+from ransac import *
 
 import random
 import math
@@ -54,11 +54,11 @@ def mask(depths, coeffs, tol: float):
     X, Y = np.meshgrid(np.arange(w), np.arange(h))
     c1, c2, c3 = coeffs
     Z = pow(c1 * X + c2 * Y + c3 - depths, 2)
-    return Z < tol
+    return (depths > 0) & (Z < tol)
 
 
 def clean_depths(depths):
-    depths = np.where(np.isinf(depths) | np.isnan(depths), -np.inf, depths)
+    depths = np.where(np.isinf(depths) | np.isnan(depths), -1, depths)
     return depths
 
 
@@ -67,8 +67,9 @@ def ground_plane(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
 ):
     max_depth = float(depths.max())
-    depths = max_depth / depths
-    pooled = pool(depths, kernel)
+    inv_depths = np.where(depths > 10000, -1, max_depth / depths)
+
+    pooled = pool(inv_depths, kernel)
     best = 0
     best_coeffs = [0, 0, 0]
 
@@ -83,7 +84,7 @@ def ground_plane(
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]
 
-    res = mask(depths, best_coeffs, tol)
+    res = mask(inv_depths, best_coeffs, tol)
 
     return res, np.array(best_coeffs) / max_depth
 
@@ -100,12 +101,12 @@ def hsv_mask(image):
 def hsv_and_ransac(image, *args):
     ground_mask, coeffs = ground_plane(*args)
     lane_mask = hsv_mask(image) & ground_mask
-    outlier_mask = ground_mask != 1
 
-    return outlier_mask | lane_mask, coeffs
+    return ground_mask & (lane_mask != 1), coeffs
 
+# re-derive, cx-px should be px-cx
 
-def real_coeffs(best_coeffs, intrinsics: ransac.CameraIntrinsics):
+def real_coeffs(best_coeffs, intrinsics: CameraIntrinsics):
     c1, c2, c3 = best_coeffs
     d = 1 / (c1 * intrinsics.cx + c2 * intrinsics.cy + c3)
     a = -d * c1 * intrinsics.fx
