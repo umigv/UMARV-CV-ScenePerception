@@ -2,7 +2,7 @@
 
 All notable changes to ARV HSV Tuner will be documented in this file.
 
-## [0.1.1] - 2024-11-16
+## [0.1.1] - 2025-11-16
 
 ### Added
 - **Image Mode Support** (Thanks https://github.com/adsuri): 
@@ -44,7 +44,7 @@ All notable changes to ARV HSV Tuner will be documented in this file.
 
 ---
 
-## [0.1.0] - 2024-11-09
+## [0.1.0] - 2025-11-09
 
 ### Added
 - Initial release
