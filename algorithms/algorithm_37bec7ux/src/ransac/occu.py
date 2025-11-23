@@ -35,18 +35,17 @@ def pixel_to_real(
     return pixel_cloud @ rotation_matrix.transpose()  # reverse order because of format
 
 
-def occupancy_grid(real_pc: npt.NDArray):
-    grouping = 50
-    width = 5000 // grouping
-    height = 5000 // grouping
+def occupancy_grid(real_pc: npt.NDArray, conf: OccupancyGridShape):
+    width = conf.gw // conf.cw
+    height = conf.gh // conf.cw
 
     res = np.zeros((height, width), dtype=np.uint8)
     
     real_pc[:, 1] = real_pc[:, 2]
 
     real_pc = real_pc[:, :-1].astype(np.int16)
-    real_pc[:, 0] = width / 2 + (real_pc[:, 0] // grouping)
-    real_pc[:, 1] = height - 1 - (real_pc[:, 1] // grouping)
+    real_pc[:, 0] = width / 2 + (real_pc[:, 0] // conf.cw)
+    real_pc[:, 1] = height - 1 - (real_pc[:, 1] // conf.cw)
 
     real_pc[:, 0] = np.clip(real_pc[:, 0], 0, width - 1)
     real_pc[:, 1] = np.clip(real_pc[:, 1], 0, height - 1)

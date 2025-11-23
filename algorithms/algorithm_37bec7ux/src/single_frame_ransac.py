@@ -54,12 +54,15 @@ intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
-pixel_pc = ransac.occu.create_point_cloud(ransac_raw, cleaned_depths)  # slow
-real_pc = ransac.occu.pixel_to_real(pixel_pc, real, intrinsics)  # slow
-occ = ransac.occu.occupancy_grid(real_pc)
+pixel_pc = ransac.occu.create_point_cloud(ransac_raw, cleaned_depths)
+real_pc = ransac.occu.pixel_to_real(pixel_pc, real, intrinsics)
+
+grid_conf = ransac.OccupancyGridShape(5000, 5000, 50)  # in millimetres
+occ = ransac.occu.occupancy_grid(real_pc, grid_conf)
 
 end = time.perf_counter()
 
+# DISPLAY DATA
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
@@ -77,7 +80,7 @@ ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
 ax[1][0].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
 ax[0][1].scatter(real_pc[:, 0], real_pc[:, 2], s=0.01)
 
-ax[0][1].axis('equal')
+ax[0][1].axis("equal")
 xlim = ax[0][1].get_xlim()
 xlim_max = max(abs(xlim[0]), abs(xlim[1]))
 ax[0][1].set_xlim((-xlim_max, xlim_max))
