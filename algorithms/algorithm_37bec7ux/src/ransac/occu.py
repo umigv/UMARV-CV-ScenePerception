@@ -13,7 +13,7 @@ import math
 
 
 def create_point_cloud(ground_mask: npt.NDArray, depth_mask: npt.NDArray):
-    c = np.argwhere(ground_mask).astype(np.int64)
+    c = np.argwhere(ground_mask != 1).astype(np.int64)
     c[:, [0, 1]] = c[:, [1, 0]]  # swap rows and cols indices
     depths = depth_mask[c[:, 1], c[:, 0]].reshape(-1, 1)  # shorthand for speed
     return np.concatenate((c.astype(np.float64), depths), axis=1)
@@ -29,12 +29,31 @@ def pixel_to_real(
     angle = ransac.plane.real_angle(real_coeffs)
     c = math.cos(angle)
     s = math.sin(angle)
-    rotation_matrix = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, c, s]])
+    # impact of cam plane [x, y, z] (inner elements) on real [x, y, z] (arrays)
+    rotation_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -s, c], [0.0, c, s]])
 
     return pixel_cloud @ rotation_matrix.transpose()  # reverse order because of format
 
 
-def occupancy_grid(real_cloud: npt.NDArray):
-    pass
+def occupancy_grid(real_pc: npt.NDArray):
     grouping = 50
-    real_cloud.astype(np.int64)
+    width = 5000 // grouping
+    height = 5000 // grouping
+
+    res = np.zeros((height, width), dtype=np.uint8)
+    
+    real_pc[:, 1] = real_pc[:, 2]
+
+    real_pc = real_pc[:, :-1].astype(np.int16)
+    real_pc[:, 0] = width / 2 + (real_pc[:, 0] // grouping)
+    real_pc[:, 1] = height - 1 - (real_pc[:, 1] // grouping)
+
+    real_pc[:, 0] = np.clip(real_pc[:, 0], 0, width - 1)
+    real_pc[:, 1] = np.clip(real_pc[:, 1], 0, height - 1)
+
+    threshold = 3 # TODO! threshold for density within occupancy grid cells
+    # real_pc, pc_counts = np.unique(real_pc, axis=0, return_counts=True) very slow
+
+    res[real_pc[:, 1], real_pc[:, 0]] = 1
+
+    return res * 255

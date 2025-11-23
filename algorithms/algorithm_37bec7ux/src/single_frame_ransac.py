@@ -16,13 +16,10 @@ frame_number = -1
 
 iters = 50
 kernel = (1, 16)  # kernel is rows, columns
-# with normalise tolerance 0.3 works well
-# tolerance = 300
 tolerance = 0.1
 
 # INPUT FILTERING (@the2nake)
 
-# take in the 720p? data (some high-res data)
 f = h5py.File(filename, "r")
 # print(list(f.keys()))
 frames = len(f["depth_maps"])
@@ -52,38 +49,44 @@ ransac_raw, ransac_coeffs = ransac.plane.hsv_and_ransac(
 )
 ransac_output = ransac_raw  # [100:, :]
 
-fx = 300
+fx = 360
 intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
 pixel_pc = ransac.occu.create_point_cloud(ransac_raw, cleaned_depths)  # slow
 real_pc = ransac.occu.pixel_to_real(pixel_pc, real, intrinsics)  # slow
+occ = ransac.occu.occupancy_grid(real_pc)
 
 end = time.perf_counter()
 
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
-# print(real_pc)
+print(real_pc)
 
 print("-----")
 
-f, axarr = plt.subplots(3, 1)
+# PLOT THINGS
+
+f, ax = plt.subplots(2, 2)
 
 ransac_output = ransac_output.astype(np.uint8) * 255
 
-axarr[0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
-axarr[1].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
-axarr[2].scatter(real_pc[:, 0], real_pc[:, 2], s=0.01)
+ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
+ax[1][0].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
+ax[0][1].scatter(real_pc[:, 0], real_pc[:, 2], s=0.01)
 
-axarr[2].axis('equal')
-xlim = axarr[2].get_xlim()
+ax[0][1].axis('equal')
+xlim = ax[0][1].get_xlim()
 xlim_max = max(abs(xlim[0]), abs(xlim[1]))
-axarr[2].set_xlim((-xlim_max, xlim_max))
+ax[0][1].set_xlim((-xlim_max, xlim_max))
 
-axarr[2].set_xlim((-1000, 1000))
-axarr[2].set_ylim((0, 2000))
+ax[0][1].set_xlim((-1000, 1000))
+ax[0][1].set_ylim((0, 2000))
+
+ax[1][1].imshow(cv2.cvtColor(occ, cv2.COLOR_GRAY2RGB))
+
 plt.show()
 
 print(f"-----\n{1000 * (end - start)} ms per frame")
