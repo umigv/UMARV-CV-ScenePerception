@@ -1,22 +1,20 @@
 # RANSAC
+
 ### by kjosh491, the2nake
 
-# Model description
-{model description here}
+## Algorithm description
 
-# Notes
+Creates an occupancy grid of obstacles using RGB-D data, filtering for lane lines on the ground plane.
 
-## I/O
+## Notes
 
-* input: int[w x h] extracted from .svo2 or live from ZED camera
-* params:
-  * pooling (int): size of pooling square pooling kernel
-  * method (bool): use max or average pool method
-* output: bool[n x m] occupancy grid with dimensions as needed
+Typical pipeline setup:
+
+`ransac.plane.clean_depths` --> `ransac.plane.hsv_and_ransac` --> `ransac.plane.real_coeffs` -->
+
+`ransac.occu.create_point_cloud` --> `ransac.occu.pixel_to-real` --> `ransac.occu.occupancy_grid`
 
 ## Dependencies
 
-* python
-  * matplotlib >= 3.5.0
-  * h5py >= 3.0.0
-* make sure to download the `res/19_11_10.hdf5` test file (check `res/README.md`)
+- check `docs/requirements.txt`
+- make sure to download the `res/19_11_10.hdf5` test file (check `res/README.md`)
