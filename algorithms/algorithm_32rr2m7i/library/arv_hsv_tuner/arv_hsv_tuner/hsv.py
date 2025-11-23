@@ -218,7 +218,7 @@ class hsv:
             mask, dict = self.update_mask()
             time2 = time.time()
 
-            cv2.putText(frame, f"Frame took {time2 - time1} seconds to process", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, f"FPS: {1 / (time2 - time1)}", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.imshow('Video', frame)
             cv2.imshow('Mask', dict[filter_name])
 

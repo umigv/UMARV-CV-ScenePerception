@@ -12,7 +12,7 @@ def main():
     tuned_hsv_values_path = "hsv_tuned_values.json" 
     hsv_obj = hsv(video_path,
                   barrel_model_path=barrel_model_path, lane_model_path=lane_model_path,
-                  tuned_hsv_path=tuned_hsv_values_path, use_barrel_model=True)
+                  tuned_hsv_path=tuned_hsv_values_path, use_barrel_model=False)
 
     # Tune filters (Qt GUI will open if PyQt5 is installed)
     hsv_obj.tune("yellow")
