@@ -1,0 +1,20 @@
+{
+    "../../../src/data/comp23_6.MOV": {
+        "yellow": {
+            "h_upper": 32,
+            "h_lower": 0,
+            "s_upper": 255,
+            "s_lower": 204,
+            "v_upper": 255,
+            "v_lower": 75
+        },
+        "white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 255,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 0
+        }
+    }
+}

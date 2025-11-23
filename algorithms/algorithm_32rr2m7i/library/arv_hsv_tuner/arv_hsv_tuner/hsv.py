@@ -6,17 +6,18 @@ from ultralytics import YOLO
 
 class hsv:
     # TODO: Image support for type and mode.
-    def __init__(self, video_path,barrel_model_path,lane_model_path,tuned_hsv_path):
+    def __init__(self, video_path, lane_model_path, tuned_hsv_path, use_barrel_model=True, barrel_model_path=None):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
         self.setup = False
         self.image = None
         self.final = None
-        self.barrel = True
+        self.barrel = use_barrel_model
         self.tuned_hsv_path = tuned_hsv_path
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO(f"{barrel_model_path}")
+        if self.barrel:
+            self.barrel_model =  YOLO(f"{barrel_model_path}")
         self.model = YOLO(f"{lane_model_path}")
         self.load_hsv_values()
         
