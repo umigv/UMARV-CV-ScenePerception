@@ -77,6 +77,7 @@ axarr[0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
 axarr[1].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
 axarr[2].scatter(real_pc[:, 0], real_pc[:, 2], s=0.01)
 
+axarr[2].axis('equal')
 xlim = axarr[2].get_xlim()
 xlim_max = max(abs(xlim[0]), abs(xlim[1]))
 axarr[2].set_xlim((-xlim_max, xlim_max))

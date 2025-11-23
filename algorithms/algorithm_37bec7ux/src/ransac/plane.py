@@ -91,17 +91,22 @@ def ground_plane(
 
 def hsv_mask(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_white = np.array([0, 0, 200], dtype=np.uint8)
+    lower_white = np.array([0, 0, 190], dtype=np.uint8)
     upper_white = np.array([255, 50, 255], dtype=np.uint8)
     return cv2.inRange(image, lower_white, upper_white)
+
 
 def hsv_and_ransac(image, *args):
     ground_mask, coeffs = ground_plane(*args)
     lane_mask = hsv_mask(image) & ground_mask
+    driveable = (ground_mask & (lane_mask != 1)).astype(np.uint8) * 255
 
-    # TODO! open/close holes
+    close_kernel = np.ones((2, 2), np.uint8)
+    driveable = cv2.morphologyEx(driveable, cv2.MORPH_CLOSE, close_kernel)
+    open_kernel = np.ones((7, 7), np.uint8)
+    driveable = cv2.morphologyEx(driveable, cv2.MORPH_OPEN, open_kernel)
+    return driveable.astype(bool), coeffs
 
-    return ground_mask & (lane_mask != 1), coeffs
 
 # re-derive? cx-px should be px-cx
 
