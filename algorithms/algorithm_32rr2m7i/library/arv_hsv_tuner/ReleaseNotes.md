@@ -66,7 +66,7 @@ All notable changes to ARV HSV Tuner will be documented in this file.
 
 ## Future Roadmap
 
-### Planned for 1.1.0
+### Planned for 1.0.0
 - Official release to private artifactory for PIP installs :)
 - Landmarks in video to allow user to save problematic spots.
 - Ability to target landmark with +n, -n time to loop over just the landmark, not the whole video (only for pre-recorded feeds.)
