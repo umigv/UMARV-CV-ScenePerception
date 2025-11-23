@@ -3,6 +3,7 @@ import numpy as np
 import os
 import json
 from ultralytics import YOLO
+import time
 
 class hsv:
     # TODO: Image support for type and mode.
@@ -205,6 +206,7 @@ class hsv:
         cv2.createTrackbar('Done Tuning', 'control pannel', 0, 1, self.on_button_click)
 
         while self.setup:
+            time1 = time.time()
             ret, frame = cap.read()
             if not ret:
                 # If the video ends, reset to the beginning
@@ -214,7 +216,9 @@ class hsv:
             self.adjust_gamma()
             self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
             mask, dict = self.update_mask()
+            time2 = time.time()
 
+            cv2.putText(frame, f"Frame took {time2 - time1} seconds to process", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
             cv2.imshow('Video', frame)
             cv2.imshow('Mask', dict[filter_name])
 
