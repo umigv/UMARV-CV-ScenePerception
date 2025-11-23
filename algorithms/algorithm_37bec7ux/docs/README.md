@@ -17,4 +17,4 @@ Typical pipeline setup:
 ## Dependencies
 
 - check `docs/requirements.txt`
-- make sure to download the `res/19_11_10.hdf5` test file (check `res/README.md`)
+- make sure to download test files (check `res/README.md`)
