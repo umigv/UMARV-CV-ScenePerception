@@ -76,18 +76,19 @@ f, ax = plt.subplots(2, 2)
 
 ransac_output = ransac_output.astype(np.uint8) * 255
 
+ax[0][0].set_title("original image")
 ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
+
+ax[1][0].set_title("segmented (ransac + hsv)")
 ax[1][0].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
+
+ax[0][1].set_title("point cloud")
 ax[0][1].scatter(real_pc[:, 0], real_pc[:, 2], s=0.01)
+ax[0][1].set_aspect("equal", adjustable="box")
+ax[0][1].set_xlim((-grid_conf.gw / 2, grid_conf.gw / 2))
+ax[0][1].set_ylim((0, grid_conf.gh))
 
-ax[0][1].axis("equal")
-xlim = ax[0][1].get_xlim()
-xlim_max = max(abs(xlim[0]), abs(xlim[1]))
-ax[0][1].set_xlim((-xlim_max, xlim_max))
-
-ax[0][1].set_xlim((-1000, 1000))
-ax[0][1].set_ylim((0, 2000))
-
+ax[1][1].set_title(f"obstacle occu grid")
 ax[1][1].imshow(cv2.cvtColor(occ, cv2.COLOR_GRAY2RGB))
 
 plt.show()
