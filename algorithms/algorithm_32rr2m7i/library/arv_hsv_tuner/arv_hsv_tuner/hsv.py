@@ -16,7 +16,7 @@ class hsv:
         self.video_path = video_path
         self.barrel_mask = None
         self.barrel_model =  YOLO(barrel_model_path)
-        self.model = YOLO(lane_model_path)
+        self.lane_model = YOLO(lane_model_path)
         self.use_lane_yolo = False  # Toggle lane YOLO
         self.use_barrel_yolo = False  # Toggle barrel YOLO
         self.load_hsv_values()
@@ -195,10 +195,15 @@ class hsv:
         # Two modes, image or video. 
         try:
             from arv_hsv_tuner.qt_tuner import tune_with_qt
-            tune_with_qt(self, filter_name,image_mode=image_mode)
+            tune_with_qt(self, filter_name, image_mode=image_mode)
             return 
-        except (ImportError, Exception):
-            print("Unable to run Qt.")
+        except ImportError as e:
+            print(f"Qt import failed: {e}")
+        except Exception as e:
+            print(f"\n❌ Qt ERROR: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            print("\nFalling back to OpenCV tuner...\n")
 
         if filter_name not in self.hsv_filters:
             # Initialize default values for the new filter
@@ -272,7 +277,7 @@ class hsv:
     def get_lane_lines_YOLO(self):
         # Get the driveable area of one frame and return the inverted mask
         # Custom only for lane lines !
-        results = self.model.predict(self.image, conf=0.7)[0]
+        results = self.lane_model.predict(self.image, conf=0.7)[0]
         laneline_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
         if(results.masks is not None):
             self.lane_masks = results.masks.xy  # Store for detection counting

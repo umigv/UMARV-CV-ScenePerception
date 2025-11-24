@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arv-hsv-tuner"
-version = "1.0.0"
+version = "0.1.2"
 description = "UM-ARV HSV color space tuning tool for lane detection with YOLO integration"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -33,7 +33,7 @@ dependencies = [
     "opencv-python>=4.5.0",
     "numpy>=1.19.0",
     "ultralytics>=8.0.0",
-    "PyQt5>=5.15.0",  # ← MOVED HERE (now required)
+    "PySide6>=6.10.0",  # ← From Qt5 to Qt6
 ]
 
 [project.optional-dependencies]
