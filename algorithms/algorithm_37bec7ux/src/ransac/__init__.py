@@ -8,7 +8,8 @@ class CameraIntrinsics:
     fy: float
 
 @dataclass
-class OccupancyGridShape:
+class OccupancyGridConfiguration:
     gw: float # grid width
     gh: float # grid height
     cw: float # cell width
+    thres: int # points per cell to fill

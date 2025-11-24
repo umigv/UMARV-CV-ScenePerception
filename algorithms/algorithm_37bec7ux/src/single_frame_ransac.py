@@ -57,7 +57,7 @@ angle = ransac.plane.real_angle(real)
 pixel_pc = ransac.occu.create_point_cloud(ransac_raw, cleaned_depths)
 real_pc = ransac.occu.pixel_to_real(pixel_pc, real, intrinsics)
 
-grid_conf = ransac.OccupancyGridShape(5000, 5000, 50)  # in millimetres
+grid_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
 occ = ransac.occu.occupancy_grid(real_pc, grid_conf)
 
 end = time.perf_counter()
@@ -88,7 +88,7 @@ ax[0][1].set_aspect("equal", adjustable="box")
 ax[0][1].set_xlim((-grid_conf.gw / 2, grid_conf.gw / 2))
 ax[0][1].set_ylim((0, grid_conf.gh))
 
-ax[1][1].set_title(f"obstacle occu grid")
+ax[1][1].set_title(f"obstacle occu grid (threshold = {grid_conf.thres})")
 ax[1][1].imshow(cv2.cvtColor(occ, cv2.COLOR_GRAY2RGB))
 
 plt.show()
