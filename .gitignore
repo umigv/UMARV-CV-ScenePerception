@@ -1,5 +1,6 @@
 .DS_Store
 env
+*.hdf5
 *.mp4
 *.pt
 *.MOV
