@@ -1,145 +1,157 @@
 ########################################################################
-# Live RANSAC → Occupancy Grid Visualization from ZED (mm depth units)
+#
+# Copyright (c) 2022, STEREOLABS.
+#
+# All rights reserved.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
 ########################################################################
 
 import sys
-import time
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-from signal import signal, SIGINT
 import pyzed.sl as sl
-
-import ransac
-import transform
-
-########################################################################
-# CTRL+C handler
-########################################################################
+from signal import signal, SIGINT
+import argparse
+import os
+import cv2
+import ransac.plane, ransac.occu
+import numpy as np
+import math
 
 cam = sl.Camera()
 
-def handler(sig, frame):
-    print("Shutting down...")
+
+# Handler to deal with CTRL+C properly
+def handler(signal_received, frame):
+    cam.disable_recording()
     cam.close()
     sys.exit(0)
 
+
 signal(SIGINT, handler)
 
-########################################################################
-# MAIN
-########################################################################
+
+def print_params(calibration_params: sl.CalibrationParameters):
+    # LEFT CAMERA intrinsics
+    fx_left = calibration_params.left_cam.fx
+    fy_left = calibration_params.left_cam.fy
+    cx_left = calibration_params.left_cam.cx
+    cy_left = calibration_params.left_cam.cy
+
+    # RIGHT CAMERA intrinsics
+    fx_right = calibration_params.right_cam.fx
+    fy_right = calibration_params.right_cam.fy
+    cx_right = calibration_params.right_cam.cx
+    cy_right = calibration_params.right_cam.cy
+
+    # Translation (baseline) between left and right camera
+    tx = calibration_params.stereo_transform.get_translation().get()[0]
+
+    # Print results
+    print("\n--- ZED Camera Calibration Parameters ---")
+    print("Left Camera Intrinsics:")
+    print(f"  fx = {fx_left:.3f}")
+    print(f"  fy = {fy_left:.3f}")
+    print(f"  cx = {cx_left:.3f}")
+    print(f"  cy = {cy_left:.3f}\n")
+
+    print("Right Camera Intrinsics:")
+    print(f"  fx = {fx_right:.3f}")
+    print(f"  fy = {fy_right:.3f}")
+    print(f"  cx = {cx_right:.3f}")
+    print(f"  cy = {cy_right:.3f}\n")
+
+    print(f"Stereo Baseline (tx): {tx:.6f} meters")
+
 
 def main():
-    #########################################################
-    # ZED INIT
-    #########################################################
+
     init = sl.InitParameters()
-    init.depth_mode = sl.DEPTH_MODE.NEURAL
+    init.depth_mode = sl.DEPTH_MODE.NEURAL  # Set configuration parameters for the ZED
     init.async_image_retrieval = False
-    init.coordinate_units = sl.UNIT.MILLIMETER   # << Depth in millimeters
+    # This parameter can be used to record SVO in camera FPS even if the grab loop is running at a lower FPS (due to compute for ex.)
 
     status = cam.open(init)
+
     if status != sl.ERROR_CODE.SUCCESS:
-        print("Camera Open:", status)
-        return
+        print("Camera Open", status, "Exit program.")
+        exit(1)
+
+    # recording_param = sl.RecordingParameters(opt.output_svo_file, sl.SVO_COMPRESSION_MODE.H265) # Enable recording with the filename specified in argument
+    # err = cam.enable_recording(recording_param)
+    # if err != sl.ERROR_CODE.SUCCESS:
+    #    print("Recording ZED : ", err)
+    #    exit(1)
 
     runtime = sl.RuntimeParameters()
+    # print("SVO is Recording, use Ctrl-C to stop.") # Start recording SVO, stop with Ctrl-C command
+    frames_recorded = 0
 
-    # Retrieve intrinsics
+    resolution = cam.get_camera_information().camera_configuration.resolution
+    w = min(720, resolution.width)
+    h = min(404, resolution.height)
+
+    low_res = sl.Resolution(w, h)
+
     cam_info = cam.get_camera_information()
-    calib = cam_info.camera_configuration.calibration_parameters
+    calibration_params = cam_info.camera_configuration.calibration_parameters
 
-    fx = calib.left_cam.fx
-    fy = calib.left_cam.fy
-    cx = calib.left_cam.cx
-    cy = calib.left_cam.cy
+    print_params(calibration_params)
 
-    print("\nZED Intrinsics (LEFT camera):")
-    print(f"fx={fx:.2f}, fy={fy:.2f}, cx={cx:.2f}, cy={cy:.2f}\n")
+    fx = calibration_params.left_cam.fx
+    fy = calibration_params.left_cam.fy
 
-    #########################################################
-    # Buffers
-    #########################################################
-    image = sl.Mat()
-    depth = sl.Mat()
+    # potentially, need to tune these
+    intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
+    grid_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
 
-    # Matplotlib figure for occupancy grid
-    plt.ion()
-    fig, ax = plt.subplots(figsize=(6,4))
-    im = None
-
-    scale = 0.05  # 0.05 meters per cell
+    image_mat = sl.Mat()
+    depth_m = sl.Mat()
 
     key = 0
-    while key != ord('q'):
-
-        #########################################################
-        # Grab frame
-        #########################################################
+    while key != 113:  # for 'q' key
         err = cam.grab(runtime)
-        if err != sl.ERROR_CODE.SUCCESS:
-            print("Grab:", err)
-            continue
+        if err <= sl.ERROR_CODE.SUCCESS:  # good to go
+            # FIXME pointing camera at only the ground causing a crash
+            cam.retrieve_image(image_mat, sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+            cam.retrieve_measure(depth_m, sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
 
-        cam.retrieve_image(image, sl.VIEW.LEFT, sl.MEM.CPU)
-        cam.retrieve_measure(depth, sl.MEASURE.DEPTH, sl.MEM.CPU)
+            image = image_mat.get_data()
+            depths = ransac.plane.clean_depths(depth_m.get_data())
 
-        img = image.get_data()[:, :, :3]
-        depth_arr = depth.get_data()
-
-        #########################################################
-        # Clean depth, run RANSAC
-        #########################################################
-        depth_clean = ransac.clean_depths(depth_arr)
-
-        ransac_output, _ = ransac.ransac(
-            depth_clean,
-            max_iters=60,
-            kernel=(1, 16),
-            tolerance=0.1
-        )
-
-        #########################################################
-        # Occupancy grid transform
-        #########################################################
-        occupancy_grid = transform.image_to_ground(
-            ransac_output,
-            depth_clean,
-            fx, fy
-        )
-
-        h, w = occupancy_grid.shape
-
-        #########################################################
-        # Display occupancy grid
-        #########################################################
-        if im is None:
-            im = ax.imshow(
-                occupancy_grid,
-                cmap="gray_r",             # 0=white, 1=black
-                interpolation="nearest",
-                extent=[0, w * scale, 0, h * scale],
-                origin="lower"
+            # ACTUAL USE
+            # ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
+            # GROUND ONLY
+            ransac_output, ransac_coeffs = ransac.plane.ground_plane(
+                depths, 60, (1, 16), 0.15
             )
-            ax.set_xlabel("meters")
-            ax.set_ylabel("meters")
+
+            rc = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
+            rad = ransac.plane.real_angle(rc)
+
+            pixel_pc = ransac.occu.create_point_cloud(ransac_output, depths)
+            real_pc = ransac.occu.pixel_to_real(pixel_pc, rc, intrinsics)
+
+            occ = ransac.occu.occupancy_grid(real_pc, grid_conf)
+            occ = cv2.resize(occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT)
+            cv2.imshow("occupancy grid", occ)
+
+            print(f"angle: {math.degrees(rad): .3f} deg")
+
+            key = cv2.waitKey(1)
         else:
-            im.set_data(occupancy_grid)
-            im.set_extent([0, w * scale, 0, h * scale])
-
-        plt.pause(0.001)
-
-        #########################################################
-        # Show camera feed
-        #########################################################
-        cv2.imshow("View (Left Camera)", img)
-        key = cv2.waitKey(1)
-
-    #########################################################
-    # Cleanup
-    #########################################################
-    plt.ioff()
+            print("Grab ZED : ", err)
+            break
     cv2.destroyAllWindows()
     cam.close()
 
