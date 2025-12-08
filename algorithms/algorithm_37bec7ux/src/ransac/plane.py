@@ -108,7 +108,7 @@ def hsv_and_ransac(image, *args):
     return driveable.astype(bool), coeffs
 
 
-# re-derive? cx-px should be px-cx
+# TODO? re-derive? cx-px should be px-cx
 
 def real_coeffs(best_coeffs, intrinsics: CameraIntrinsics):
     c1, c2, c3 = best_coeffs
@@ -119,8 +119,6 @@ def real_coeffs(best_coeffs, intrinsics: CameraIntrinsics):
 
 
 def real_angle(real_coeffs):
-    # upon clicking on the opencv image
-    # get the pixel coordinates of the click
     # angle between [0, 0, -1] and [a, b, -1]
     a, b, _ = real_coeffs
     return math.acos(1 / math.hypot(a, b, -1))

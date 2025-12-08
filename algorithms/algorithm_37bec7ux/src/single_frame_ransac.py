@@ -1,7 +1,6 @@
 import numpy as np  # matrices
 import matplotlib.pyplot as plt
 import h5py  # reading data
-import skimage  # image filter
 import random
 import time
 import math
@@ -35,8 +34,6 @@ depth_map = f["depth_maps"][frame_number]
 image = f["images"][frame_number]
 image = image[:, 0 : int(image.shape[1] / 2)]
 
-h, w = depth_map.shape
-
 f.close()
 
 # START
@@ -50,6 +47,8 @@ ransac_raw, ransac_coeffs = ransac.plane.hsv_and_ransac(
 ransac_output = ransac_raw  # [100:, :]
 
 fx = 360
+
+h, w = depth_map.shape
 intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
