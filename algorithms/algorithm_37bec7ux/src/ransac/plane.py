@@ -67,7 +67,7 @@ def ground_plane(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
 ):
     max_depth = float(depths.max())
-    inv_depths = np.where(depths > 10000, -1, max_depth / depths)
+    inv_depths = np.where(depths > 10000, 10000, max_depth / depths)
 
     pooled = pool(inv_depths, kernel)
     best = 0

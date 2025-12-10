@@ -113,7 +113,8 @@ def main():
 
     # potentially, need to tune these
     intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
-    grid_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
+    drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
+    block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)
 
     image_mat = sl.Mat()
     depth_m = sl.Mat()
@@ -139,12 +140,24 @@ def main():
             rc = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
             rad = ransac.plane.real_angle(rc)
 
-            pixel_pc = ransac.occu.create_point_cloud(ransac_output, depths)
-            real_pc = ransac.occu.pixel_to_real(pixel_pc, rc, intrinsics)
+            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
+            drive_rpc = ransac.occu.pixel_to_real(drive_ppc, rc, intrinsics)
+            block_ppc = ransac.occu.create_point_cloud(ransac_output != 1, depths)
+            block_rpc = ransac.occu.pixel_to_real(block_ppc, rc, intrinsics)
 
-            occ = ransac.occu.occupancy_grid(real_pc, grid_conf)
-            occ = cv2.resize(occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT)
-            cv2.imshow("occupancy grid", occ)
+            drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
+            block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
+            merged = ransac.occu.merge(drive_occ, block_occ)
+
+            occ_h, occ_w = merged.shape
+            cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
+            merged = ransac.occu.create_los_grid(merged, [cam])
+
+            merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
+            merged = cv2.resize(
+                merged, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
+            )
+            cv2.imshow("occupancy grid", merged)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 

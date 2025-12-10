@@ -41,10 +41,10 @@ f.close()
 start = time.perf_counter()
 
 cleaned_depths = ransac.plane.clean_depths(raw_depths)
-ransac_raw, ransac_coeffs = ransac.plane.hsv_and_ransac(
-    image, cleaned_depths, 60, (1, 16), 0.1
+driveable, ransac_coeffs = ransac.plane.hsv_and_ransac(
+    image, cleaned_depths, 60, (1, 16), 0.15
 )
-ransac_output = ransac_raw  # [100:, :]
+ransac_output = driveable  # [100:, :]
 
 fx = 360
 
@@ -53,42 +53,62 @@ intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
-pixel_pc = ransac.occu.create_point_cloud(ransac_raw, cleaned_depths)
-real_pc = ransac.occu.pixel_to_real(pixel_pc, real, intrinsics)
+driveable_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
+driveable_rpc = ransac.occu.pixel_to_real(driveable_ppc, real, intrinsics)
 
-grid_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
-occ = ransac.occu.occupancy_grid(real_pc, grid_conf)
+obstacle_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
+obstacle_rpc = ransac.occu.pixel_to_real(obstacle_ppc, real, intrinsics)
 
+driveable_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
+obstacle_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
+driveable_occ = ransac.occu.occupancy_grid(driveable_rpc, driveable_conf)
+obstacle_occ = ransac.occu.occupancy_grid(obstacle_rpc, obstacle_conf)
+
+merged = ransac.occu.merge(driveable_occ, obstacle_occ)
+
+occ_h, occ_w = merged.shape
+cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
+los_grid = ransac.occu.create_los_grid(merged, [cam]) # remove cam to use morphology technique (faster)
 end = time.perf_counter()
 
 # DISPLAY DATA
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
-print(real_pc)
+print(driveable_rpc)
 
 print("-----")
 
 # PLOT THINGS
 
-f, ax = plt.subplots(2, 2)
+def show_pc(axes, cloud, conf: ransac.OccupancyGridConfiguration, name: str = "point cloud"):
+    axes.set_title(name)
+    axes.scatter(cloud[:, 0], cloud[:, 2], s=0.01)
+    axes.set_aspect("equal", adjustable="box")
+    axes.set_xlim((-conf.gw / 2, conf.gw / 2))
+    axes.set_ylim((0, conf.gh))
+
+def bool_to_bgr(mat):
+    return cv2.cvtColor(mat.astype(np.uint8) * 255, cv2.COLOR_GRAY2BGR)
+
+f, ax = plt.subplots(3, 2)
 
 ransac_output = ransac_output.astype(np.uint8) * 255
+merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
 
 ax[0][0].set_title("original image")
 ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
 
-ax[1][0].set_title("segmented (ransac + hsv)")
-ax[1][0].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
+ax[0][1].set_title("segmented (ransac + hsv)")
+ax[0][1].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
 
-ax[0][1].set_title("point cloud")
-ax[0][1].scatter(real_pc[:, 0], real_pc[:, 2], s=0.01)
-ax[0][1].set_aspect("equal", adjustable="box")
-ax[0][1].set_xlim((-grid_conf.gw / 2, grid_conf.gw / 2))
-ax[0][1].set_ylim((0, grid_conf.gh))
+show_pc(ax[1][0], driveable_rpc, driveable_conf, "driveable cloud")
+show_pc(ax[1][1], obstacle_rpc, driveable_conf, "obstacle cloud")
 
-ax[1][1].set_title(f"obstacle occu grid (threshold = {grid_conf.thres})")
-ax[1][1].imshow(cv2.cvtColor(occ, cv2.COLOR_GRAY2RGB))
+ax[2][0].set_title("merged area")
+ax[2][0].imshow(merged)
+ax[2][1].set_title("line of sight")
+ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
 
 plt.show()
 

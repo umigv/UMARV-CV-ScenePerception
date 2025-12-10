@@ -13,3 +13,10 @@ class OccupancyGridConfiguration:
     gh: float # grid height
     cw: float # cell width
     thres: int # points per cell to fill
+
+@dataclass
+class VirtualCamera:
+    i: int
+    j: int
+    dir: float # radians
+    fov: float # radians
