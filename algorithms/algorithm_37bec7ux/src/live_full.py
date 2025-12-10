@@ -151,7 +151,7 @@ def main():
 
             occ_h, occ_w = merged.shape
             cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-            merged = ransac.occu.create_los_grid(merged, [cam])
+            merged = ransac.occu.create_los_grid(merged) #, [cam])
 
             merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
             merged = cv2.resize(

@@ -53,18 +53,17 @@ intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
-driveable_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
-driveable_rpc = ransac.occu.pixel_to_real(driveable_ppc, real, intrinsics)
+drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
+drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics)
 
-obstacle_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
-obstacle_rpc = ransac.occu.pixel_to_real(obstacle_ppc, real, intrinsics)
+block_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
+block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics)
 
-driveable_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
-obstacle_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
-driveable_occ = ransac.occu.occupancy_grid(driveable_rpc, driveable_conf)
-obstacle_occ = ransac.occu.occupancy_grid(obstacle_rpc, obstacle_conf)
-
-merged = ransac.occu.merge(driveable_occ, obstacle_occ)
+drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
+block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
+drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
+block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
+merged = ransac.occu.merge(drive_occ, block_occ)
 
 occ_h, occ_w = merged.shape
 cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
@@ -75,7 +74,7 @@ end = time.perf_counter()
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
-print(driveable_rpc)
+print(drive_rpc)
 
 print("-----")
 
@@ -102,8 +101,8 @@ ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
 ax[0][1].set_title("segmented (ransac + hsv)")
 ax[0][1].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
 
-show_pc(ax[1][0], driveable_rpc, driveable_conf, "driveable cloud")
-show_pc(ax[1][1], obstacle_rpc, driveable_conf, "obstacle cloud")
+show_pc(ax[1][0], drive_rpc, drive_conf, "driveable cloud")
+show_pc(ax[1][1], block_rpc, drive_conf, "obstacle cloud")
 
 ax[2][0].set_title("merged area")
 ax[2][0].imshow(merged)
