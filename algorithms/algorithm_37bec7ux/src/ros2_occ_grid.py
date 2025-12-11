@@ -152,30 +152,30 @@ def main():
 
     print_params(calibration_params)
 
-    # fx = calibration_params.left_cam.fx
-    # fy = calibration_params.left_cam.fy
+    fx = calibration_params.left_cam.fx
+    fy = calibration_params.left_cam.fy
 
     # potentially, need to tune these
-    # intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
+    intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
 
-    # >>> change: intrinsics scaling based on image resolution
-    full_w = resolution.width
-    full_h = resolution.height
+    # >>> change: intrinsics scaling based on image resolution (tested, made very small difference)
+    # full_w = resolution.width
+    # full_h = resolution.height
 
-    sx = w / float(full_w)
-    sy = h / float(full_h)
+    # sx = w / float(full_w)
+    # sy = h / float(full_h)
 
-    cx_full = calibration_params.left_cam.cx
-    cy_full = calibration_params.left_cam.cy
-    fx_full = calibration_params.left_cam.fx
-    fy_full = calibration_params.left_cam.fy
+    # cx_full = calibration_params.left_cam.cx
+    # cy_full = calibration_params.left_cam.cy
+    # fx_full = calibration_params.left_cam.fx
+    # fy_full = calibration_params.left_cam.fy
 
-    cx_scaled = cx_full * sx
-    cy_scaled = cy_full * sy
-    fx_scaled = fx_full * sx
-    fy_scaled = fy_full * sy
+    # cx_scaled = cx_full * sx
+    # cy_scaled = cy_full * sy
+    # fx_scaled = fx_full * sx
+    # fy_scaled = fy_full * sy
 
-    intrinsics = ransac.CameraIntrinsics(cx_scaled, cy_scaled, fx_scaled, fy_scaled)
+    # intrinsics = ransac.CameraIntrinsics(cx_scaled, cy_scaled, fx_scaled, fy_scaled)
     # <<< end of change
 
 
