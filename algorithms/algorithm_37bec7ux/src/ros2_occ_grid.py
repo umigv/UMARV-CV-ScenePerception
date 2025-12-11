@@ -61,6 +61,9 @@ class OccGridPublisher(Node):
         ros = np.full(flat.shape, -1, dtype=np.int8)
         ros[flat == 0] = 100   # occupied
         ros[flat == 255] = 0   # free
+
+        ros = np.flipud(ros)
+        
         msg.data = ros.flatten().tolist()
 
         self.pub.publish(msg)
