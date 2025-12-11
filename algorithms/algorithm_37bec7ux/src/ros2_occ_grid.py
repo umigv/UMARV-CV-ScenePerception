@@ -27,6 +27,7 @@ import cv2
 import ransac.plane, ransac.occu
 import numpy as np
 import math
+
 # >>> ros2 change
 import rclpy
 from rclpy.node import Node
@@ -63,7 +64,8 @@ class OccGridPublisher(Node):
         ros[flat == 255] = 0   # free
 
         ros = np.flipud(ros)
-        
+        #ros = np.rot90(ros, k=3)
+
         msg.data = ros.flatten().tolist()
 
         self.pub.publish(msg)
@@ -150,11 +152,33 @@ def main():
 
     print_params(calibration_params)
 
-    fx = calibration_params.left_cam.fx
-    fy = calibration_params.left_cam.fy
+    # fx = calibration_params.left_cam.fx
+    # fy = calibration_params.left_cam.fy
 
     # potentially, need to tune these
-    intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
+    # intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
+
+    # >>> change: intrinsics scaling based on image resolution
+    full_w = resolution.width
+    full_h = resolution.height
+
+    sx = w / float(full_w)
+    sy = h / float(full_h)
+
+    cx_full = calibration_params.left_cam.cx
+    cy_full = calibration_params.left_cam.cy
+    fx_full = calibration_params.left_cam.fx
+    fy_full = calibration_params.left_cam.fy
+
+    cx_scaled = cx_full * sx
+    cy_scaled = cy_full * sy
+    fx_scaled = fx_full * sx
+    fy_scaled = fy_full * sy
+
+    intrinsics = ransac.CameraIntrinsics(cx_scaled, cy_scaled, fx_scaled, fy_scaled)
+    # <<< end of change
+
+
     drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
     block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)
 
@@ -182,11 +206,10 @@ def main():
             depths = ransac.plane.clean_depths(depth_m.get_data())
 
             # ACTUAL USE
-            # ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
+            ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
+            
             # GROUND ONLY
-            ransac_output, ransac_coeffs = ransac.plane.ground_plane(
-                depths, 60, (1, 16), 0.15
-            )
+            #ransac_output, ransac_coeffs = ransac.plane.ground_plane(depths, 60, (1, 16), 0.15)
 
             rc = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
             rad = ransac.plane.real_angle(rc)
@@ -202,10 +225,10 @@ def main():
 
             occ_h, occ_w = merged.shape
 
-            #small change here to resolve naming conflict
+            # >>> small change here to resolve naming conflict (cam renamed to virt_cam)
             virt_cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
             merged = ransac.occu.create_los_grid(merged)  # , [virt_cam])
-
+            # <<< end of small change
 
             # >>> ros2 change
             occ_node.publish(merged)
@@ -220,6 +243,7 @@ def main():
             print(f"angle: {math.degrees(rad): .3f} deg")
 
             key = cv2.waitKey(1)
+
             # >>> ros2 change
             rclpy.spin_once(occ_node, timeout_sec=0.0)
             # <<< ros2 end of change
@@ -229,6 +253,7 @@ def main():
             break
     cv2.destroyAllWindows()
     cam.close()
+
     # >>> ros2 change
     rclpy.shutdown()
     # <<< ros2 end of change
