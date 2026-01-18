@@ -22,7 +22,7 @@ class leftTurn:
         self.centroid = (None, None)
         self.width = None
         self.done = True
-        self.barrel_boxes = None
+        # self.barrel_boxes = None
         self.height = None
         self.state_1_done = False
         self.midpoint = None
@@ -61,6 +61,7 @@ class leftTurn:
         ], dtype=np.int32)
 
         # Fill the trapezoid with 0 in the mask
+        print("Trapezoid drawn")
         cv2.fillPoly(self.final, [pts], 0)
 
 
@@ -227,6 +228,7 @@ class leftTurn:
         # Induce forward trajetory
         # This is a will be for the initial straightaway before we cross the stopping line
         status = self.past_stop_line()
+        self.draw_trapazoid()
         if (status == True):
             print("past_stop_line was true")
             self.state_1_done = True
@@ -234,7 +236,7 @@ class leftTurn:
             return
         else:
             print("past_stop_line was false")
-            self.draw_trapazoid()
+            #self.draw_trapazoid()
             self.centroid = (self.width//2, 40)
             # Block out the stop line with the trapazoid
             # set waypoint to directly in front of the robot
@@ -245,7 +247,8 @@ class leftTurn:
         # This is for the point where we have crossed the 
         # stopping line but have yet to see the yellow
         # Also revert to this state after state 1 and if in state 2 and no yellow
-        self.draw_trapazoid()
+        print("we are in state 2")
+        #self.draw_trapazoid()
         point1 = (0, int(0.25*self.height))
         point2 = (int(0.125*self.width), self.height)
         cv2.line(self.final, (int(0.6 * self.width), 0), (self.width, self.height), 255, 10) #right line
@@ -259,7 +262,7 @@ class leftTurn:
         # Anytime we see yellow dashed we should invoke this state
         
         # MAKE SURE TO CHECK FOR CONE IN FRONT
-        for segment in self.barrel_boxes:
+        for segment in self.hsv_obj.barrel_boxes:
             x_min, y_min, x_max, y_max = segment
             vertices = np.array([
                 [x_min * self.width, y_min * self.height], #top-left
@@ -313,7 +316,10 @@ class leftTurn:
                 x += self.diff_x #* 2, run
                 y += self.diff_y #* 2, rise
                 point_list.append((x,y))
-            self.centroid = point_list[len(point_list)//2]
+
+            if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
+                self.centroid = point_list[len(point_list)//2]
+                
             self.yellow_found = True
             point1 = (0, self.height)
             point2 = (edge_white_x, edge_white_y)
@@ -339,11 +345,14 @@ class leftTurn:
         
         contours, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         min_area = 200
+        best_cnt = None
+        max_y = 0
         
         num_yellow_dashed = 0
         for cnt in contours: # Looping through contours
             if cv2.contourArea(cnt) > min_area:
                 num_yellow_dashed += 1
+                
                 if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < self.width // 2 and cnt[0, 0, 1] < self.height // 2:
                     max_y = cnt[0, 0, 1]
                     best_cnt = cnt
@@ -355,7 +364,7 @@ class leftTurn:
             self.state_3(best_cnt)
 
     def run(self):
-        cap = cv2.VideoCapture('data/left_turn.mp4') # 0 for webcam # 1,2 for external cameras
+        cap = cv2.VideoCapture('data/left_turn_trimmed.mp4') # 0 for webcam # 1,2 for external cameras
         self.hsv_obj = hsv('data/trimmed.mov')
         
         # self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')

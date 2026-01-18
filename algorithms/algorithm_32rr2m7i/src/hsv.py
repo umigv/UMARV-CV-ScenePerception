@@ -14,6 +14,7 @@ class hsv:
         self.barrel = True
         self.video_path = video_path
         self.barrel_mask = None
+        self.barrel_boxes = None
         self.barrel_model =  YOLO("./data/obstacles.pt")
         self.model = YOLO("./data/laneswithcontrast.pt")
         self.barrel_model = YOLO("./data/obstacles.pt")
