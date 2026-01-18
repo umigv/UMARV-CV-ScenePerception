@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from drivable_area.hsv import hsv
+from hsv import hsv
 
 
 class leftTurn:
@@ -36,10 +36,13 @@ class leftTurn:
     
     def past_stop_line(self):
         cnts, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        print(f"Yellow contours (count): {len(cnts)}")
+        print(f"Yellow contours: {cnts}")
         
         if len(cnts) == 0:
             return True
         else:
+            # print("returning false")
             return False
             
             
@@ -61,6 +64,110 @@ class leftTurn:
         cv2.fillPoly(self.final, [pts], 0)
 
 
+
+    def find_left_most_lane(self):
+        assert(self.white_mask.shape == self.final.shape)
+        contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        min_area = 200 # Adjust based on noise size
+        # hsv_lanes = np.zeros_like(self.mask) # New occupancy grid that is blank
+        self.height, self.width = self.white_mask.shape
+        
+        best_cnt = None
+        max_y = 0
+        
+        for cnt in contours: # Looping through contours
+            if cv2.contourArea(cnt) > min_area:
+                # Find left most lane
+                if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < self.width // 2 and cnt[0, 0, 1] < self.height // 2:
+                    max_y = cnt[0, 0, 1]
+                    best_cnt = cnt
+                
+                # cv2.drawContours(hsv_lanes, [cnt], -1, 255, thickness=cv2.FILLED)
+        
+        max_y = 0
+        x, y = None, None
+        if best_cnt is not None:
+            for point in best_cnt:
+                if point[0][1] > max_y:
+                    y = point[0][1]
+                    x = point[0][0]
+                    max_y = y
+                
+        self.diff_x, self.diff_y = None, None
+
+        if self.yellow_found is False:
+            #right line
+            self.draw_trapazoid()
+            point1 = (0, int(0.5*self.height))
+            point2 = (int(0.125*self.width), self.height)
+            cv2.line(self.final, (int(0.8 * self.width), 0), (self.width, self.height), 255, 10)
+            #left line
+            cv2.line(self.final, point1, point2, 255, 10)
+            self.centroid = (self.width // 4, 40)
+            
+            
+            # self.find_center_of_lane()
+        if y is not None:
+            # print(x, y)
+            
+            # cv2.circle(final, (x, y), 100, 255, -1)
+
+            edge_white_x = x
+            edge_white_y = y
+            
+            # cv2.circle(self.final, (x, y), 15, 255, -1)
+            
+            x -= 150
+            x = max(0, x)
+            while y < self.height and self.white_mask[y, x] != 255:
+                y += 1
+                # cv2.circle(self.final, (x, y), 3, 255, -1)
+            
+            self.diff_x, self.diff_y = self.find_slope(x, y, edge_white_x, edge_white_y)    
+            x, y = edge_white_x, edge_white_y
+            self.diff_x //= 10
+            self.diff_y //= 10
+            # print(f"diffx {self.diff_x}, diffy {self.diff_y}")
+            
+            x += self.diff_x * 5
+            y += self.diff_y * 5
+            
+            point_list = []
+            
+            while x > 0 and y > 0 and x < self.width - self.diff_x and y < self.height - self.diff_y and self.white_mask[y, x] == 0:
+                # cv2.circle(self.final, (x, y), 5, 255, -1)
+
+                x += self.diff_x #* 2, run
+                y += self.diff_y #* 2, rise
+                
+                point_list.append((x,y))
+                
+            
+            if(len(point_list) > 2):
+                self.centroid = point_list[len(point_list)//2]
+                
+            
+            # cv2.circle(self.final, self.centroid, 25, 255, -1)
+                
+            # self.find_center_of_lane()
+            if(self.diff_y > -20 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
+                self.yellow_found = True
+                point1 = (0, self.height)
+                point2 = (edge_white_x, edge_white_y)
+                cv2.line(self.final, (x, y), (self.width, self.height), 255, 10)
+                cv2.line(self.final, point1, point2, 255, 10)
+                
+            
+            if abs(self.last_diff_y - self.diff_y) >= 10:
+                self.done = True
+                
+            
+            return self.diff_y
+        
+        else:
+            return -3
+
+
     def update_mask(self):
         #defining the ranges for HSV values
         self.final, dict = self.hsv_obj.get_mask(self.image)
@@ -71,7 +178,7 @@ class leftTurn:
         self.past_stop_line()
         
         # if(self.done == False):
-        self.last_diff_y = self.find_left_most_lane()
+        # self.last_diff_y = self.find_left_most_lane()
         # else:
         #     self.draw_trapazoid()
         #     self.centroid = (self.width//2, 40)
@@ -121,10 +228,12 @@ class leftTurn:
         # This is a will be for the initial straightaway before we cross the stopping line
         status = self.past_stop_line()
         if (status == True):
+            print("past_stop_line was true")
             self.state_1_done = True
             self.state_2()
             return
         else:
+            print("past_stop_line was false")
             self.draw_trapazoid()
             self.centroid = (self.width//2, 40)
             # Block out the stop line with the trapazoid
@@ -218,13 +327,14 @@ class leftTurn:
     def state_machine(self):
         # This will decide which spot to be in
         # invariant: yellow_mask and white_mask must be set
-        assert(self.white_mask != None)
-        assert(self.yellow_mask != None)
+        # assert(self.white_mask != None)
+        # assert(self.yellow_mask != None)
         
         self.height, self.width = self.white_mask.shape
         if not self.state_1_done:
             # still in state 1, but once we are out of state 1 there is no way back
             self.state_1()
+            print("we are in state 1")
             return
         
         contours, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -245,10 +355,10 @@ class leftTurn:
             self.state_3(best_cnt)
 
     def run(self):
-        cap = cv2.VideoCapture('data/left_turn_full.mp4')
+        cap = cv2.VideoCapture('data/left_turn.mp4') # 0 for webcam # 1,2 for external cameras
         self.hsv_obj = hsv('data/trimmed.mov')
         
-        self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')
+        # self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -256,6 +366,12 @@ class leftTurn:
                 self.height, self.width, _ = self.image.shape
                 
                 self.update_mask()
+                self.state_machine()
+                cv2.circle(self.final, self.centroid, 5, 255, -1)
+
+                cv2.imshow("Final", self.final)
+                cv2.imshow("Yellow", self.yellow_mask)
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:

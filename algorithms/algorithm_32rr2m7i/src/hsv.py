@@ -14,9 +14,9 @@ class hsv:
         self.barrel = True
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO("/home/umarv/ros2_ws/src/cv-stack/drivable_area/utils/obstacles.pt")
-        self.model = YOLO("/home/umarv/ros2_ws/src/cv-stack/drivable_area/utils/laneswithcontrast.pt")
-        self.barrel_model = YOLO("/home/umarv/ros2_ws/src/cv-stack/drivable_area/utils/obstacles.pt")
+        self.barrel_model =  YOLO("./data/obstacles.pt")
+        self.model = YOLO("./data/laneswithcontrast.pt")
+        self.barrel_model = YOLO("./data/obstacles.pt")
         self.load_hsv_values()
         
     def load_hsv_values(self):
@@ -244,8 +244,8 @@ class hsv:
             combined_mask = cv2.bitwise_or(combined_mask, barrels)
         # print(combined_mask.shape)
         
-        barrels = self.get_barrels_YOLO()
-        combined = cv2.bitwise_or(combined, barrels)
+        # barrels = self.get_barrels_YOLO()
+        # combined = cv2.bitwise_or(combined_mask, barrels)
         return combined_mask, masks
         
     def get_mask(self, frame):
