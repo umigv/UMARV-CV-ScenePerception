@@ -27,6 +27,7 @@ class leftTurn:
         self.state_1_done = False
         self.midpoint = None
         self.in_state_4 = False
+        self.state_number = 1
 
     def find_slope(self, cur_x, cur_y, edge_white_x, edge_white_y):
         self.diff_y = (edge_white_y - cur_y)
@@ -225,6 +226,7 @@ class leftTurn:
     
     
     def state_1(self):
+        self.state_number = 1
         # Induce forward trajetory
         # This is a will be for the initial straightaway before we cross the stopping line
         status = self.past_stop_line()
@@ -243,11 +245,11 @@ class leftTurn:
         
     
     def state_2(self):
+        self.state_number = 2
         # induce a constant left turn with waypoint in top corner
         # This is for the point where we have crossed the 
         # stopping line but have yet to see the yellow
         # Also revert to this state after state 1 and if in state 2 and no yellow
-        print("we are in state 2")
         #self.draw_trapazoid()
         point1 = (0, int(0.25*self.height))
         point2 = (int(0.125*self.width), self.height)
@@ -258,7 +260,7 @@ class leftTurn:
         
         
     def state_3(self, best_cnt):
-        print("we are in stage 3")
+        self.state_number = 3
         # Draw lane lines to align outselved with the turn lane
         # Anytime we see yellow dashed we should invoke this state
         
@@ -341,7 +343,6 @@ class leftTurn:
         if not self.state_1_done:
             # still in state 1, but once we are out of state 1 there is no way back
             self.state_1()
-            print("we are in state 1")
             return
         
         contours, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -377,6 +378,7 @@ class leftTurn:
                 
                 self.update_mask()
                 self.state_machine()
+                print(f"we are in stage {self.state_number}")
                 cv2.circle(self.final, self.centroid, 5, 255, -1)
 
                 cv2.imshow("Final", self.final)
