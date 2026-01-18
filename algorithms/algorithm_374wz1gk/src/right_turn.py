@@ -5,6 +5,7 @@ import numpy as np
 
 class right_turn:
     def __init__(self):
+        # stores state across frames:
         self.image = None
         self.hsv_image = None
         self.white_mask = None
@@ -17,30 +18,34 @@ class right_turn:
         self.cnt_diff = None
 
     def update_mask(self):
-        #defining the ranges for HSV values
+        # defining the ranges for HSV values:
         yellow_lower_bound = np.array([12, 95, 0])
         yellow_upper_bound = np.array([32, 255, 255])
         white_lower_bound = np.array([0, 0, 180])
         white_upper_bound = np.array([179, 103, 255])
         
-        
+        # creates binary masks (white pixels- detected color pixels, black pixels- everything else):
         self.white_mask = cv2.inRange(self.hsv_image, white_lower_bound, white_upper_bound)
         self.yellow_mask = cv2.inRange(self.hsv_image, yellow_lower_bound, yellow_upper_bound) # Return a mask of HSV values within the range we specified
-        
+
+        # resizes masks to match image:
         self.white_mask = cv2.resize(self.white_mask, (self.image.shape[1], self.image.shape[0]))
         self.yellow_mask = cv2.resize(self.yellow_mask, (self.image.shape[1], self.image.shape[0]))
 
-        #some post processing stuff to help it look smoother
+        # some post processing stuff to help it look smoother (noise removal):
         self.white_mask = cv2.erode(self.white_mask, None, iterations=2)
         self.white_mask = cv2.dilate(self.white_mask, None, iterations=2)
 
         self.yellow_mask = cv2.erode(self.yellow_mask, None, iterations=2)
         self.yellow_mask = cv2.dilate(self.yellow_mask, None, iterations=2)
-        
+
+        # combines above masks: 
         self.mask = cv2.bitwise_or(self.yellow_mask, self.white_mask)
-        
+
+        # finds right-most lane:
         self.find_right_most_lane()
-        
+
+        # display mask (ignore commented out lines):
         # result = cv2.bitwise_and(image, image, mask=mask) #applies the mask to the base image so only masked parts of the image are shown
         self.resized_mask = cv2.resize(self.mask, (640, 480))
         # cv2.imshow("result", result)
@@ -48,8 +53,9 @@ class right_turn:
         
         
     def find_right_most_lane(self):
+        # finds contours: extracts connected yellow regions, each contour ≈ a candidate lane marking
         contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        min_area = 200 # Adjust based on noise size
+        min_area = 200 # Adjust based on noise size (ignores tiny contours)
         hsv_lanes = np.zeros_like(self.yellow_mask) #new occupancy grid that is blank
         
         min_x = float("inf")
@@ -59,7 +65,7 @@ class right_turn:
         for cnt in contours: # looping through contours
             # print(f"contour area {cv2.contourArea(cnt)}")
             # print(f"Min area {min_area}")
-            if cv2.contourArea(cnt) > min_area:
+            if cv2.contourArea(cnt) > min_area: #only processes useful contours (not tiny ones)
                 #find left most lane
                 # print(cnt[0, 0, 0]) # x-values of each cnt
                 # print(cnt[0, 0, 1]) # y-values of each cnt
