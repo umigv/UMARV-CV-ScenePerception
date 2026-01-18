@@ -258,6 +258,7 @@ class leftTurn:
         
         
     def state_3(self, best_cnt):
+        print("we are in stage 3")
         # Draw lane lines to align outselved with the turn lane
         # Anytime we see yellow dashed we should invoke this state
         
