@@ -12,7 +12,7 @@
             "h_upper": 179,
             "h_lower": 23,
             "s_upper": 255,
-            "s_lower": 96,
+            "s_lower": 150,
             "v_upper": 255,
             "v_lower": 231
         },
@@ -23,6 +23,14 @@
             "s_lower": 0,
             "v_upper": 255,
             "v_lower": 212
+        },
+        "old_yellow": {
+          "h_upper": 179,
+            "h_lower": 23,
+            "s_upper": 255,
+            "s_lower": 96,
+            "v_upper": 255,
+            "v_lower": 231
         }
     },
     "data/left_turn_full.mp4": {
