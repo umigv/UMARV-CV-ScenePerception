@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 from hsv import hsv
 
+# Left turn algorithm updated from testing at comp, !!NOT TESTED!!
 
-class left_turn:
+class leftTurn:
     def __init__(self):
         self.last_diff_y = -3
         self.image = None
@@ -22,8 +23,12 @@ class left_turn:
         self.centroid = (None, None)
         self.width = None
         self.done = True
+        self.barrel_boxes = None
         self.height = None
-        
+        self.state_1_done = False
+        self.midpoint = None
+        self.in_state_4 = False
+        self.testing = True
 
     def find_slope(self, cur_x, cur_y, edge_white_x, edge_white_y):
         self.diff_y = (edge_white_y - cur_y)
@@ -35,7 +40,9 @@ class left_turn:
         cnts, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if len(cnts) == 0:
-            self.done = False
+            return True
+        else:
+            return False
             
             
     def draw_trapazoid(self):
@@ -58,23 +65,23 @@ class left_turn:
 
     def update_mask(self):
         #defining the ranges for HSV values
-        self.final, dict = self.hsv_obj.get_mask(self.image)
+        self.final, dict = self.hsv_obj.get_mask(self.image, yolo_barrels=True)
         
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
         
         self.past_stop_line()
-        
-        if(self.done == False):
-            self.last_diff_y = self.find_left_most_lane()
-        else:
-            self.draw_trapazoid()
-            self.centroid = (self.width//2, 40)
+        self.last_diff_y = self.state_machine()
         self.find_center_of_lane()
+        
+        cv2.circle(self.final, self.centroid, 10, 255, -1)
         cv2.imshow("mask", self.final)
         final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
         combined = np.vstack((self.image, final_bgr))
         cv2.imshow("mask", combined)
+        
+    def in_bounds(self, x, y):
+        return 0 <= x < self.width and 0 <= y < self.height 
         
     
     def find_center_of_lane(self):
@@ -111,114 +118,156 @@ class left_turn:
         return waypoints
     
     
-    
-    def find_left_most_lane(self):
-        assert(self.white_mask.shape == self.final.shape)
-        contours, _ = cv2.findContours(self.yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        min_area = 200 # Adjust based on noise size
-        # hsv_lanes = np.zeros_like(self.mask) # New occupancy grid that is blank
-        self.height, self.width = self.white_mask.shape
-        
-        best_cnt = None
-        max_y = 0
-        
-        for cnt in contours: # Looping through contours
-            if cv2.contourArea(cnt) > min_area:
-                # Find left most lane
-                if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < self.width // 2 and cnt[0, 0, 1] < self.height // 2:
-                    max_y = cnt[0, 0, 1]
-                    best_cnt = cnt
-                
-                # cv2.drawContours(hsv_lanes, [cnt], -1, 255, thickness=cv2.FILLED)
-        
-        max_y = 0
-        x, y = None, None
-        if best_cnt is not None:
-            for point in best_cnt:
-                if point[0][1] > max_y:
-                    y = point[0][1]
-                    x = point[0][0]
-                    max_y = y
-                
-        self.diff_x, self.diff_y = None, None
-
-        if self.yellow_found is False:
-            #right line
+    def state_1(self):
+        # Induce forward trajetory
+        # This is a will be for the initial straightaway before we cross the stopping line
+        status = self.past_stop_line()
+        if (status == True):
+            self.state_1_done = True
+            self.state_2()
+            return
+        else:
             self.draw_trapazoid()
-            point1 = (0, int(0.5*self.height))
-            point2 = (int(0.125*self.width), self.height)
-            cv2.line(self.final, (int(0.8 * self.width), 0), (self.width, self.height), 255, 10)
-            #left line
-            cv2.line(self.final, point1, point2, 255, 10)
-            self.centroid = (self.width // 4, 40)
-            
-            
-            # self.find_center_of_lane()
-        if y is not None:
-            # print(x, y)
-            
-            # cv2.circle(final, (x, y), 100, 255, -1)
-
-            edge_white_x = x
-            edge_white_y = y
-            
-            # cv2.circle(self.final, (x, y), 15, 255, -1)
-            
-            x -= 150
-            x = max(0, x)
-            while y < self.height and self.white_mask[y, x] != 255:
-                y += 1
-                # cv2.circle(self.final, (x, y), 3, 255, -1)
-            
-            self.diff_x, self.diff_y = self.find_slope(x, y, edge_white_x, edge_white_y)    
-            x, y = edge_white_x, edge_white_y
-            self.diff_x //= 10
-            self.diff_y //= 10
-            # print(f"diffx {self.diff_x}, diffy {self.diff_y}")
-            
-            x += self.diff_x * 5
-            y += self.diff_y * 5
-            
-            point_list = []
-            
-            while x > 0 and y > 0 and x < self.width - self.diff_x and y < self.height - self.diff_y and self.white_mask[y, x] == 0:
-                # cv2.circle(self.final, (x, y), 5, 255, -1)
-
-                x += self.diff_x #* 2, run
-                y += self.diff_y #* 2, rise
+            self.centroid = (self.width//2, 40)
+            # Block out the stop line with the trapazoid
+            # set waypoint to directly in front of the robot
+        
+    
+    def state_2(self):
+        # induce a constant left turn with waypoint in top corner
+        # This is for the point where we have crossed the 
+        # stopping line but have yet to see the yellow
+        # Also revert to this state after state 1 and if in state 2 and no yellow
+        self.draw_trapazoid()
+        point1 = (0, int(0.25*self.height))
+        point2 = (int(0.125*self.width), self.height)
+        cv2.line(self.final, (int(0.6 * self.width), 0), (self.width, self.height), 255, 10) #right line
+        cv2.line(self.final, point1, point2, 255, 10) #left line
+        self.centroid = (self.width // 8, 40)
+        
+        
+        
+    def state_3(self, best_cnt):
+        # Draw lane lines to align outselved with the turn lane
+        # Anytime we see yellow dashed we should invoke this state
+        
+        # MAKE SURE TO CHECK FOR CONE IN FRONT
+        # If cone in front and close enough go to state 4
+        if self.barrel_boxes != None:
+            for segment in self.barrel_boxes:
+                x_min, y_min, x_max, y_max = segment
+                vertices = np.array([
+                    [x_min * self.width, y_min * self.height], #top-left
+                    [x_max * self.width, y_min * self.height], #top right
+                    [x_max * self.width, y_max * self.height], #bottom-right
+                    [x_min * self.width, y_max * self.height] #bottom left
+                ], dtype=np.int32)
                 
-                point_list.append((x,y))
+                if(y_min * self.height > self.height // 2):
+                    # this might be a cone that is close to us so see if its in the midele
+                    self.midpoint = (x_max * self.width) - (x_min * self.width)
+                    if(self.midpoint > self.width // 4 and self.midpoint < (self.width - (self.width//4))):
+                        self.in_state_4 = True
+                        self.centroid = self.midpoint
+                        return
+                else:
+                    self.midpoint = None
+        
+        else:
+            # This is the logic of state 3
+            max_y = 0
+            x, y = None, None
+            if best_cnt is not None: 
+                for point in best_cnt:
+                    if point[0][1] > max_y:
+                        y = point[0][1]
+                        x = point[0][0]
+                        max_y = y
+            self.diff_x, self.diff_y = None, None
+            if y is not None:
                 
-            
-            if(len(point_list) > 2):
-                self.centroid = point_list[len(point_list)//2]
+                while self.in_bounds(x,y) and self.white_mask[y, x] != 255:
+                    y += 1
+                while self.in_bounds(x,y) and self.white_mask[y, x] == 255:
+                    y += 1
+                edge_white_y = y
+                edge_white_x = x
                 
-            
-            # cv2.circle(self.final, self.centroid, 25, 255, -1)
+                # cv2.circle(self.final, (edge_white_x, edge_white_y), 10, 255, -1)
                 
-            # self.find_center_of_lane()
-            if(self.diff_y > -20 and self.diff_y < 0 and abs(self.last_diff_y - self.diff_y) < 10 and (self.white_mask[y, x] != 0)):
+                y += 200
+                y = min(self.height, y)
+                while self.in_bounds(x,y) and self.white_mask[y, x] != 255:
+                    x -= 1
+                
+                self.diff_x, self.diff_y = self.find_slope(y, x, edge_white_y, edge_white_x)
+                x, y = edge_white_x, edge_white_y
+                self.diff_x //= 10
+                self.diff_y //= 10
+                
+                
+                x -= self.diff_x * 5
+                y -= self.diff_y * 5
+                
+                point_list = []
+                
+                print("diff_x, diff_y:", self.diff_x, self.diff_y)
+                if self.testing and self.diff_x >= 0:
+                    self.in_state_4 = True
+                    self.centroid = (self.width//2, 40)
+                    return
+                
+                self.diff_x -= 20 #Applying this so that the slope is a little more accurate
+                
+                while self.in_bounds(x,y) and x < self.width - self.diff_x and y < self.height - self.diff_y and self.white_mask[y, x] == 0:
+                    x -= self.diff_x #* 2, run
+                    y -= self.diff_y #* 2, rise
+                    point_list.append((x,y))
+                    cv2.circle(self.final, (x, y), 5, 255, -1)
+                    
+                if len(point_list) == 0:
+                    self.centroid = (self.width//2, 40)
+                else:
+                    self.centroid = point_list[len(point_list)//2]
                 self.yellow_found = True
                 point1 = (0, self.height)
                 point2 = (edge_white_x, edge_white_y)
                 cv2.line(self.final, (x, y), (self.width, self.height), 255, 10)
                 cv2.line(self.final, point1, point2, 255, 10)
-                
-            
-            if abs(self.last_diff_y - self.diff_y) >= 10:
-                self.done = True
-                
-            
-            return self.diff_y
         
+    def state_machine(self):
+        # This will decide which spot to be in
+        # invariant: yellow_mask and white_mask must be set
+        
+        self.height, self.width = self.white_mask.shape
+        if not self.state_1_done:
+            # still in state 1, but once we are out of state 1 there is no way back
+            self.state_1()
+            return
+        
+        contours, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        min_area = 200
+        
+        num_yellow_dashed = 0
+        max_y = 0
+        best_cnt = None
+
+        for cnt in contours: # Looping through contours to find yellow dashed lines
+            if cv2.contourArea(cnt) > min_area:
+                num_yellow_dashed += 1
+                if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < self.width // 2 and cnt[0, 0, 1] < self.height // 2:
+                    max_y = cnt[0, 0, 1]
+                    best_cnt = cnt
+                    
+        if num_yellow_dashed == 0:
+            self.state_2()
+            return
         else:
-            return -3
-
-
+            self.state_3(best_cnt)
+            
     def run(self):
-        cap = cv2.VideoCapture('data/left_turn_full.mp4')
-        self.hsv_obj = hsv('data/trimmed.mov')
-        
+        cap = cv2.VideoCapture('data/left_turn_trimmed.mp4') #Specify an integer for webcam or other camera
+        self.hsv_obj = hsv('data/IMG_5123.MOV')
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -232,19 +281,10 @@ class left_turn:
                 break
         cap.release()
         cv2.destroyAllWindows()
-        
-    def run_frame(self, hsv_indentifier, frame):
-        if self.hsv_obj is None:
-            self.hsv_obj = hsv(hsv_indentifier)
-        
-        self.image = frame
-        self.height, self.width, _ = self.image.shape
-    
-        self.update_mask()
 
 
 def main():
-    obj = left_turn()
+    obj = leftTurn()
     obj.run()
 
 if __name__ == "__main__":
