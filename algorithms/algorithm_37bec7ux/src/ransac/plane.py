@@ -132,5 +132,5 @@ def predict_depth(coeffs: list[int], coords: npt.NDArray):
     c1, c2, c3 = coeffs
 
     z = 1 / (c1 * coords[:, 0] + c2 * coords[:, 1] + c3)
-
+    z = z.reshape(-1, 1)
     return np.concatenate((coords.astype(np.float64), z), axis=1)

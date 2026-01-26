@@ -75,6 +75,7 @@ def print_params(calibration_params: sl.CalibrationParameters):
 
 
 def main():
+    global cam
 
     init = sl.InitParameters()
     init.depth_mode = sl.DEPTH_MODE.NEURAL  # Set configuration parameters for the ZED
@@ -150,20 +151,26 @@ def main():
             merged = ransac.occu.merge(drive_occ, block_occ)
 
             occ_h, occ_w = merged.shape
-            cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-            merged = ransac.occu.create_los_grid(merged) #, [cam])
+            vcam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
+            merged = ransac.occu.create_los_grid(merged, [vcam])
 
             merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
             merged = cv2.resize(
                 merged, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
             )
             cv2.imshow("occupancy grid", merged)
+
+
             x = w // 2
             y = h // 2
-            coords = np.array([[x, y]])
-            predicted_points = ransac.plane.predict_depth(ransac_coeffs, coords)
-            predicted_real = ransac.occu.pixel_to_real(predicted_points, rc, intrinsics)
-            print('Predicted Real: ', predicted_real)
+            # coords = None # disables conversion
+            coords = np.array([[x, y]]) # pixel coordinates
+            predicted_real = np.array([])
+            if coords is not None:
+                predicted_points = ransac.plane.predict_depth(ransac_coeffs, coords)
+                # n by 2 array of (x, z) coordinates
+                predicted_real = ransac.occu.pixel_to_real(predicted_points, rc, intrinsics)[:,(0,2)]
+            print(predicted_real)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 

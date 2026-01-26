@@ -21,21 +21,25 @@ def create_point_cloud(mask: npt.NDArray, depth_mask: npt.NDArray):
 
     return np.concatenate((coords.astype(np.float64), depths), axis=1)
 
-
+# outputs (x,y,z) with real z as depth, y as height
+# y value outputs are complete garbage
 def pixel_to_real(
     pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: CameraIntrinsics
 ):
-
+    # converts px into mm
     pixel_cloud[:, 0] = pixel_cloud[:, 2] * (pixel_cloud[:, 0] - intr.cx) / intr.fx
     pixel_cloud[:, 1] = pixel_cloud[:, 2] * (intr.cy - pixel_cloud[:, 1]) / intr.fy
 
     angle = ransac.plane.real_angle(real_coeffs)
     c = math.cos(angle)
     s = math.sin(angle)
+    # cosine, sine reversed from usual because of angle output
     # impact of cam plane [x, y, z] (inner elements) on real [x, y, z] (arrays)
-    rotation_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -s, c], [0.0, c, s]])
+    rotation_matrix = np.array([[1.0, 0.0, 0.0],
+                                [0.0,   s,   c],
+                                [0.0,  -c,   s]])
 
-    return pixel_cloud @ rotation_matrix.transpose()  # reverse order because of format
+    return pixel_cloud @ rotation_matrix # reverse order because of format
 
 
 def bind_idx(points: npt.NDArray, w: int, h: int):
