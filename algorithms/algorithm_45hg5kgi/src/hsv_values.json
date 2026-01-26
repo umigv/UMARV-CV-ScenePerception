@@ -1,0 +1,58 @@
+{
+    "data/trimmed.mov": {
+        "white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 86,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 217
+        },
+        "yellow": {
+            "h_upper": 179,
+            "h_lower": 23,
+            "s_upper": 255,
+            "s_lower": 96,
+            "v_upper": 255,
+            "v_lower": 231
+        },
+        "data/trimmed.mov": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 93,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 212
+        }
+    },
+    "data/left_turn_full.mp4": {
+        "white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 218,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 212
+        }
+    },
+    "0": {
+        "white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 239,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 97
+        }
+    },
+    "data/compvid.mp4": {
+        "yellow": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 89,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 108
+        }
+    }
+}
