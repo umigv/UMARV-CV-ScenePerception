@@ -6,6 +6,7 @@ import random
 import math
 
 import numpy as np
+import numpy.typing as npt
 import skimage
 import cv2
 
@@ -122,3 +123,14 @@ def real_angle(real_coeffs):
     # angle between [0, 0, -1] and [a, b, -1]
     a, b, _ = real_coeffs
     return math.acos(1 / math.hypot(a, b, -1))
+
+
+def predict_depth(coeffs: list[int], coords: npt.NDArray):
+    # coords is a Nx2 numpy array containing coordinates (x, y)
+    # pass pixel coefficients 
+
+    c1, c2, c3 = coeffs
+
+    z = 1 / (c1 * coords[:, 0] + c2 * coords[:, 1] + c3)
+
+    return np.concatenate((coords.astype(np.float64), z), axis=1)

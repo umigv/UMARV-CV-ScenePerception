@@ -158,6 +158,12 @@ def main():
                 merged, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
             )
             cv2.imshow("occupancy grid", merged)
+            x = w // 2
+            y = h // 2
+            coords = np.array([[x, y]])
+            predicted_points = ransac.plane.predict_depth(ransac_coeffs, coords)
+            predicted_real = ransac.occu.pixel_to_real(predicted_points, rc, intrinsics)
+            print('Predicted Real: ', predicted_real)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 
