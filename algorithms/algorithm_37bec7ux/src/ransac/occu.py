@@ -13,11 +13,21 @@ import math
 
 # TODO: create a tool to tune grid paramters (scale, rotation, translation) in real time (or on a recording)
 
+def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
+    # coords is a Nx2 numpy array containing coordinates (x, y)
+    # pass pixel coefficients 
 
-def create_point_cloud(mask: npt.NDArray, depth_mask: npt.NDArray):
+    c1, c2, c3 = ransac_coeffs
+
+    z = 1 / (c1 * coords[:, 0] + c2 * coords[:, 1] + c3)
+    z = z.reshape(-1, 1)
+    return np.concatenate((coords.astype(np.float64), z), axis=1)
+
+
+def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray):
     coords = np.argwhere(mask).astype(np.int64)
-    coords[:, [0, 1]] = coords[:, [1, 0]]  # swap rows and cols indices
-    depths = depth_mask[coords[:, 1], coords[:, 0]].reshape(-1, 1)
+    coords[:, [0, 1]] = coords[:, [1, 0]]  # (row, col) -> (x, y)
+    depths = depth_map[coords[:, 1], coords[:, 0]].reshape(-1, 1)
 
     return np.concatenate((coords.astype(np.float64), depths), axis=1)
 
@@ -27,19 +37,23 @@ def pixel_to_real(
     pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: CameraIntrinsics
 ):
     # converts px into mm
-    pixel_cloud[:, 0] = pixel_cloud[:, 2] * (pixel_cloud[:, 0] - intr.cx) / intr.fx
-    pixel_cloud[:, 1] = pixel_cloud[:, 2] * (intr.cy - pixel_cloud[:, 1]) / intr.fy
+    cloud = pixel_cloud.copy()
+    cloud[:, 0] = pixel_cloud[:, 2] * (pixel_cloud[:, 0] - intr.cx) / intr.fx
+    cloud[:, 1] = pixel_cloud[:, 2] * (intr.cy - pixel_cloud[:, 1]) / intr.fy
+
+    # should be 0
+    # a, b, d = real_coeffs
+    # print(a * cloud[0, 0] + b * cloud[0, 1] + d - cloud[0, 2])
 
     angle = ransac.plane.real_angle(real_coeffs)
     c = math.cos(angle)
     s = math.sin(angle)
-    # cosine, sine reversed from usual because of angle output
-    # impact of cam plane [x, y, z] (inner elements) on real [x, y, z] (arrays)
+    # each column affects the output (x, y, z) respectively
     rotation_matrix = np.array([[1.0, 0.0, 0.0],
-                                [0.0,   s,   c],
-                                [0.0,  -c,   s]])
+                                [0.0,   c,  -s],
+                                [0.0,   s,   c]])
 
-    return pixel_cloud @ rotation_matrix # reverse order because of format
+    return cloud @ rotation_matrix.transpose() # reverse order because of format
 
 
 def bind_idx(points: npt.NDArray, w: int, h: int):

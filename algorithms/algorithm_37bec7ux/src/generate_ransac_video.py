@@ -1,5 +1,6 @@
 import h5py
 import ransac.plane
+import ransac.occu
 import cv2
 import numpy as np
 import os
@@ -7,9 +8,9 @@ import math
 
 iters = 50
 kernel = (1, 16)  # kernel is rows, columns
-tolerance = 0.14
+tolerance = 0.05
 
-filename = "res/19_11_10.hdf5" #"res/perspective_test.svo2.hdf5"
+filename = "res/19_11_10.hdf5"  # "res/perspective_test.svo2.hdf5"
 fourcc = cv2.VideoWriter_fourcc(*"XVID")
 
 
@@ -41,7 +42,8 @@ def main():
 
         masked = (255 * masked).astype(np.uint8)
         masked = cv2.cvtColor(masked, cv2.COLOR_GRAY2BGR)
-        masked = cv2.rectangle(masked, (50, 100), (w - 50, h - 2), (0, 255, 0), 2)
+        masked = cv2.rectangle(
+            masked, (50, 100), (w - 50, h - 2), (0, 255, 0), 2)
         masked = cv2.putText(
             masked,
             "reliable area",
@@ -61,6 +63,7 @@ def main():
             1,
         )
 
+        # TODO: load the actual intrinsics from the h5py
         intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, 600 / 2, 600 / 2)
         real_coeffs = ransac.plane.real_coeffs(c, intrinsics)
         rad = ransac.plane.real_angle(real_coeffs)
@@ -75,7 +78,7 @@ def main():
         )
         masked = cv2.putText(
             masked,
-            f"angle: {math.degrees(rad)}",
+            f"angle: {round(math.degrees(rad))}",
             (75, 200),
             cv2.FONT_HERSHEY_COMPLEX,
             0.5,
@@ -92,9 +95,42 @@ def main():
             1,
         )
 
-        vis = np.concatenate((view, masked), axis=0)
+        # highlight a pixel and its world-space coordinate
+        highlight = [[0.75 * w, 0.75 * h]]
+        p = ransac.occu.create_ground_cloud(np.array(highlight), c)
+        r = ransac.occu.pixel_to_real(p, real_coeffs, intrinsics)
 
-        writer.write(vis)
+        p = p.astype(int)
+        r = r.astype(int)
+        for i, v in enumerate(highlight):
+            v = [round(v[0]), round(v[1])]
+            str1 = f"pc={p[i][0]:5d} {p[i][1]:5d} {p[i][2]:5d}"
+            str2 = f"rc={r[i][0]:5d} {r[i][1]:5d} {r[i][2]:5d}"
+            masked = cv2.putText(
+                masked,
+                str1,
+                (int(highlight[i][0]) - len(str1)
+                 * 3, int(highlight[i][1]) - 20),
+                cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                0.5,
+                (40, 0, 255),
+                1,
+            )
+            masked = cv2.putText(
+                masked,
+                str2,
+                (int(highlight[i][0]) - len(str2)
+                 * 3, int(highlight[i][1]) - 10),
+                cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                0.5,
+                (40, 0, 255),
+                1,
+            )
+            masked = cv2.circle(
+                masked, tuple(v), 1, (40, 0, 255), 2)
+
+            vis = np.concatenate((view, masked), axis=0)
+            writer.write(vis)
 
     cv2.destroyAllWindows()
     writer.release()

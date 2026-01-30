@@ -60,6 +60,7 @@ def mask(depths, coeffs, tol: float):
 
 def clean_depths(depths):
     depths = np.where(np.isinf(depths) | np.isnan(depths), -1, depths)
+    depths = np.where(depths > 10000, 10000, depths)
     return depths
 
 
@@ -67,8 +68,9 @@ def clean_depths(depths):
 def ground_plane(
     depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
 ):
+    depths = clean_depths(depths)
     max_depth = float(depths.max())
-    inv_depths = np.where(depths > 10000, 10000, max_depth / depths)
+    inv_depths = max_depth / depths
 
     pooled = pool(inv_depths, kernel)
     best = 0
@@ -109,28 +111,17 @@ def hsv_and_ransac(image, *args):
     return driveable.astype(bool), coeffs
 
 
-# TODO? re-derive? cx-px should be px-cx
-
 def real_coeffs(best_coeffs, intrinsics: CameraIntrinsics):
     c1, c2, c3 = best_coeffs
+    # d = depth at the focal point
     d = 1 / (c1 * intrinsics.cx + c2 * intrinsics.cy + c3)
-    a = -d * c1 * intrinsics.fx
-    b = -d * c2 * intrinsics.fy
-    return a, b, d
+    return (-d * c1 * intrinsics.fx, d * c2 * intrinsics.fy, d)
 
 
+# angle of depression
 def real_angle(real_coeffs):
-    # angle between [0, 0, -1] and [a, b, -1]
     a, b, _ = real_coeffs
-    return math.acos(1 / math.hypot(a, b, -1))
-
-
-def predict_depth(coeffs: list[int], coords: npt.NDArray):
-    # coords is a Nx2 numpy array containing coordinates (x, y)
-    # pass pixel coefficients 
-
-    c1, c2, c3 = coeffs
-
-    z = 1 / (c1 * coords[:, 0] + c2 * coords[:, 1] + c3)
-    z = z.reshape(-1, 1)
-    return np.concatenate((coords.astype(np.float64), z), axis=1)
+    rad = math.acos(1 / math.hypot(a, b, 1))
+    if (math.isnan(rad)):
+        return 0
+    return math.pi / 2 - rad

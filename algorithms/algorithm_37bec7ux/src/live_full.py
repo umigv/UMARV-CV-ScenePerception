@@ -24,7 +24,8 @@ from signal import signal, SIGINT
 import argparse
 import os
 import cv2
-import ransac.plane, ransac.occu
+import ransac.plane
+import ransac.occu
 import numpy as np
 import math
 
@@ -78,7 +79,8 @@ def main():
     global cam
 
     init = sl.InitParameters()
-    init.depth_mode = sl.DEPTH_MODE.NEURAL  # Set configuration parameters for the ZED
+    # Set configuration parameters for the ZED
+    init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
     # This parameter can be used to record SVO in camera FPS even if the grab loop is running at a lower FPS (due to compute for ex.)
 
@@ -113,7 +115,7 @@ def main():
     fy = calibration_params.left_cam.fy
 
     # potentially, need to tune these
-    intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
+    intr = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
     drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
     block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)
 
@@ -126,7 +128,8 @@ def main():
         if err <= sl.ERROR_CODE.SUCCESS:  # good to go
             # FIXME pointing camera at only the ground causing a crash
             cam.retrieve_image(image_mat, sl.VIEW.LEFT, sl.MEM.CPU, low_res)
-            cam.retrieve_measure(depth_m, sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+            cam.retrieve_measure(
+                depth_m, sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
 
             image = image_mat.get_data()
             depths = ransac.plane.clean_depths(depth_m.get_data())
@@ -134,24 +137,28 @@ def main():
             # ACTUAL USE
             # ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
             # GROUND ONLY
-            ransac_output, ransac_coeffs = ransac.plane.ground_plane(
+            ransac_output, px_coeffs = ransac.plane.ground_plane(
                 depths, 60, (1, 16), 0.15
             )
 
-            rc = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
-            rad = ransac.plane.real_angle(rc)
+            real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
+            rad = ransac.plane.real_angle(real_coeffs)
 
             drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
-            drive_rpc = ransac.occu.pixel_to_real(drive_ppc, rc, intrinsics)
-            block_ppc = ransac.occu.create_point_cloud(ransac_output != 1, depths)
-            block_rpc = ransac.occu.pixel_to_real(block_ppc, rc, intrinsics)
+            drive_rpc = ransac.occu.pixel_to_real(
+                drive_ppc, real_coeffs, intr)
+            block_ppc = ransac.occu.create_point_cloud(
+                ransac_output != 1, depths)
+            block_rpc = ransac.occu.pixel_to_real(
+                block_ppc, real_coeffs, intr)
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
             merged = ransac.occu.merge(drive_occ, block_occ)
 
             occ_h, occ_w = merged.shape
-            vcam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
+            vcam = ransac.VirtualCamera(
+                occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
             merged = ransac.occu.create_los_grid(merged, [vcam])
 
             merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
@@ -160,17 +167,18 @@ def main():
             )
             cv2.imshow("occupancy grid", merged)
 
-
             x = w // 2
             y = h // 2
             # coords = None # disables conversion
-            coords = np.array([[x, y]]) # pixel coordinates
-            predicted_real = np.array([])
+            coords = np.array([[x, y]])  # pixel coordinates
+            pred_real = np.array([])
             if coords is not None:
-                predicted_points = ransac.plane.predict_depth(ransac_coeffs, coords)
+                pred = ransac.occu.create_ground_cloud(
+                    coords, px_coeffs)
                 # n by 2 array of (x, z) coordinates
-                predicted_real = ransac.occu.pixel_to_real(predicted_points, rc, intrinsics)[:,(0,2)]
-            print(predicted_real)
+                pred_real = ransac.occu.pixel_to_real(
+                    pred, real_coeffs, intr)[:, (0, 2)]
+            print(pred_real)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 
