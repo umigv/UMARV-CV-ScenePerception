@@ -4,7 +4,7 @@ from hsv import hsv
 
 
 class RightTurn:
-    def __init__(self):
+    def __init__(self, debug = False):
         self.image = None
         self.hsv_image = None
         self.white_mask = None
@@ -24,6 +24,7 @@ class RightTurn:
         self.state_4_done = False
 
         self.midpoint = None
+        self.debug = debug
 
     def draw_trapezoid(self):
         top_width_start = self.width // 4  # Narrower top
@@ -40,13 +41,15 @@ class RightTurn:
         ], dtype=np.int32)
 
         # Fill the trapezoid with 0 in the mask
-        print("Trapezoid drawn")
+        if self.debug:
+            print("Trapezoid drawn")
         cv2.fillPoly(self.final, [pts], 0)
 
     def past_stop_line(self):
         cnts, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        print(f"Yellow contours (count): {len(cnts)}")
+        if self.debug:
+            print(f"Yellow contours (count): {len(cnts)}")
 
         if len(cnts) == 0:
             return True
@@ -60,18 +63,11 @@ class RightTurn:
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
         
-        # self.past_stop_line()
-        
-        # if(self.done == False):
-        # self.last_diff_y = self.find_left_most_lane()
-        # else:
-        #     self.draw_trapazoid()
-        #     self.centroid = (self.width//2, 40)
-        self.find_center_of_lane()
-        cv2.imshow("mask", self.final)
+        # self.find_center_of_lane()
+        cv2.imshow("mask_final", self.final)
         final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
         combined = np.vstack((self.image, final_bgr))
-        cv2.imshow("mask", combined)
+        cv2.imshow("mask_combined", combined)
 
     def find_center_of_lane(self):
         pass
@@ -79,25 +75,25 @@ class RightTurn:
     def state_1(self):
         # Induce forward trajectory
         # This is a will be for the initial straightaway before we cross the stopping line
-        print("state 1")
+        if self.debug:
+            print("state 1")
 
         status = self.past_stop_line()
         self.draw_trapezoid()
         if (status == True):
-            print("past_stop_line was true")
             self.state_1_done = True
             self.state_2()
             return
         else:
-            print("past_stop_line was false")
-            self.centroid = (self.width//2, 40)
+            self.centroid = (self.width // 2, 40)
             # Block out the stop line with the trapazoid
             # set waypoint to directly in front of the robot
 
     def state_2(self):
         # state2: in the case we can't see yellow dashed line but past stop line
         # start right movement
-        print("state 2")
+        if self.debug:
+            print("state 2")
 
         # induce a constant left turn with waypoint in top corner
         # This is for the point where we have crossed the 
@@ -123,10 +119,68 @@ class RightTurn:
     def state_3(self, best_cnt):
         # state3: the case where we're mid-turn and can see the yellow dashed line
         # using cv2 contours, detect and draw temp lane lines
-        print("state 3")
+        if self.debug:
+            print("state 3")
+
+        max_y = 0
+        x, y = None, None
+
+        # find x, y of lowest point of contour
+        if best_cnt is not None:
+            for point in best_cnt:
+                if point[0][1] > max_y:
+                    y = point[0][1]
+                    x = point[0][0]
+                    max_y = y
+
+        if (x is not None) and (y is not None):
+            x2 = max(0, x - 150)
+            y2 = y
+
+            while y2 > 0 and self.final[y2, x2] != 255:
+                y2 -= 1 # bring up to bottom of white line
+            while y2 > 0 and self.final[y2, x2] != 0:
+                y2 -= 1 # bring up to top of white line
+
+            if self.debug:
+                cv2.circle(self.final, (x, y), 5, 128, -1)
+                cv2.circle(self.final, (x2, y2), 5, 128, -1)
+            
+            min_x_dist = 40
+            # invalid_points = ((y2 == 0) or y > self.height // 3) or (x - x2 < min_x_dist)
+            invalid_points = (y2 == 0 and (y > self.height // 8)) or (x - x2 < min_x_dist)
+
+            if invalid_points: # white line is probably gone, so set centroid up ahead
+                self.centroid  = (self.width // 2, 40)
+            else: # slope logic
+                diff_x = x - x2
+                diff_x //= 10
+                diff_y = y - y2
+                diff_y //= 10
+
+                point_list = []
+                
+                initial_jump_factor = 2
+                curr_x, curr_y = x + (diff_x * initial_jump_factor), y + (diff_y * initial_jump_factor)
+
+                while (curr_x > 0 and curr_x < self.width - diff_x) and (curr_y > 0 and curr_y < self.height - diff_y) and (self.final[curr_y, curr_x] == 0):
+                    curr_x += diff_x
+                    curr_y += diff_y
+                    point_list.append((curr_x, curr_y))
+
+                [cv2.circle(self.final, point, 5, 128, -1) for point in point_list if self.debug]
+
+                if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
+                    self.centroid = point_list[len(point_list) // 2]
+
+                    # print(f"{self.centroid[1] / self.height}")
+                    # print(f"width: {self.width}, height {self.height}")
+                    # print(self.centroid)
+                    # if self.centroid[1] > ((self.height // 5) * 4):
+                    #     print("centroid is too low, sending it back")
+                    #     self.centroid = (self.width // 2, 40)
 
     def state_machine(self):
-        self.height, self.width = self.white_mask.shape
         if not self.state_1_done:
             # still in state 1, but once we are out of state 1 there is no way back
             self.state_1()
@@ -146,7 +200,7 @@ class RightTurn:
                     max_y = cnt[0, 0, 1]
                     best_cnt = cnt
                     
-        if num_yellow_dashed == 0:
+        if num_yellow_dashed == 0 or (best_cnt is None):
             self.state_2()
             return
         else:
@@ -155,8 +209,6 @@ class RightTurn:
     def run(self):
         cap = cv2.VideoCapture('data/right_turn1.mp4')
         self.hsv_obj = hsv('data/trimmed.mov')
-        
-        # self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -168,9 +220,12 @@ class RightTurn:
 
                 cv2.circle(self.final, self.centroid, 5, 255, -1)
 
+                cv2.namedWindow("Final", cv2.WINDOW_NORMAL)
                 cv2.imshow("Final", self.final)
+                cv2.namedWindow("Yellow", cv2.WINDOW_NORMAL)
                 cv2.imshow("Yellow", self.yellow_mask)
-                cv2.imshow("White", self.yellow_mask)
+                cv2.namedWindow("White", cv2.WINDOW_NORMAL)
+                cv2.imshow("White", self.white_mask)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -189,7 +244,7 @@ class RightTurn:
         self.update_mask()
 
 def main():
-    obj = RightTurn()
+    obj = RightTurn(debug = True)
     obj.run()
 
 if __name__ == "__main__":
