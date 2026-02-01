@@ -78,13 +78,27 @@ while cap.isOpened():
                         ######flag variable set if it is in fact a stop sign
                         if text.lower() == "stop":
                             stop_found = True
+                        else:
+                            print("not stop sign")
+                            print(text.lower())
 
 
 
                         #display the text found
                         cv2.putText(frame, f"{text} ({confidence:.2f})", (x1, y1-10), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                        if stop_found:
+                            cv2.putText(frame, f"Stop Sign", (x1, y1+20), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                        else:
+                            cv2.putText(frame, f"Unknown", (x1, y1+20), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                         print(stop_found)
+                        print(confidence)
+            else:
+                print("Unknown")
+                cv2.putText(frame, f"Unknown", (100, 100), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
     #display stuff for GUI/ not necessary for functionality
     cv2.imshow('Stop Sign Detection', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
