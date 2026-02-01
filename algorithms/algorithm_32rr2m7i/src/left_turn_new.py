@@ -364,8 +364,8 @@ class leftTurn:
             self.state_3(best_cnt)
 
     def run(self):
-        cap = cv2.VideoCapture('data/left_turn_trimmed.mp4') # 0 for webcam # 1,2 for external cameras
-        self.hsv_obj = hsv('data/trimmed.mov')
+        cap = cv2.VideoCapture('data/left_turn.MOV') # 0 for webcam # 1,2 for external cameras
+        self.hsv_obj = hsv('data/left_turn_trimmed.mp4')
         
         # self.hsv_obj = self.hsv_obj.tune('data/trimmed.mov')
         
