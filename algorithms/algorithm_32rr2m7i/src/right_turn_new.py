@@ -23,7 +23,6 @@ class RightTurn:
         self.state_1_done = False
         self.state_4_done = False
 
-        self.midpoint = None
         self.debug = debug
 
     def draw_trapezoid(self):
@@ -227,6 +226,9 @@ class RightTurn:
                 cv2.namedWindow("White", cv2.WINDOW_NORMAL)
                 cv2.imshow("White", self.white_mask)
 
+                if self.debug:
+                    print()
+                
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
@@ -244,7 +246,7 @@ class RightTurn:
         self.update_mask()
 
 def main():
-    obj = RightTurn(debug = True)
+    obj = RightTurn(debug = False)
     obj.run()
 
 if __name__ == "__main__":
