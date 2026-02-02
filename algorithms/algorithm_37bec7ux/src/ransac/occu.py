@@ -82,7 +82,7 @@ def occupancy_grid(real_pc: npt.NDArray, conf: OccupancyGridConfiguration):
     return grid
 
 
-def merge(drive_occ: npt.NDArray, block_occ: npt.NDArray):
+def composite(drive_occ: npt.NDArray, block_occ: npt.NDArray):
     merged = drive_occ & (block_occ != 1)
     merged = merged.astype(np.uint8) * 255
     unknown = block_occ | drive_occ != 1

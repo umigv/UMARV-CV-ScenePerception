@@ -221,24 +221,24 @@ def main():
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-            merged = ransac.occu.merge(drive_occ, block_occ)
+            full_occ = ransac.occu.composite(drive_occ, block_occ)
 
-            occ_h, occ_w = merged.shape
+            occ_h, occ_w = full_occ.shape
 
             # >>> small change here to resolve naming conflict (cam renamed to virt_cam)
-            virt_cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-            merged = ransac.occu.create_los_grid(merged, [virt_cam])  # , [virt_cam])
+            virt_cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
+            full_occ = ransac.occu.create_los_grid(full_occ, [virt_cam])  # , [virt_cam])
             # <<< end of small change
 
             # >>> ros2 change
-            occ_node.publish(merged)
+            occ_node.publish(full_occ)
             # <<< ros2 end of change
 
-            merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
-            merged = cv2.resize(
-                merged, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
+            full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
+            full_occ = cv2.resize(
+                full_occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
             )
-            cv2.imshow("occupancy grid", merged)
+            cv2.imshow("occupancy grid", full_occ)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 

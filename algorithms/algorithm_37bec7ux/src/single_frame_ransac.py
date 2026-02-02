@@ -63,11 +63,11 @@ drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in mi
 block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
 drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
 block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-merged = ransac.occu.merge(drive_occ, block_occ)
+full_occ = ransac.occu.composite(drive_occ, block_occ)
 
-occ_h, occ_w = merged.shape
+occ_h, occ_w = full_occ.shape
 cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-los_grid = ransac.occu.create_los_grid(merged, [cam]) # remove cam to use morphology technique (faster)
+los_grid = ransac.occu.create_los_grid(full_occ, [cam]) # remove cam to use morphology technique (faster)
 end = time.perf_counter()
 
 # DISPLAY DATA
@@ -93,7 +93,7 @@ def bool_to_bgr(mat):
 f, ax = plt.subplots(3, 2)
 
 ransac_output = ransac_output.astype(np.uint8) * 255
-merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
+full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
 
 ax[0][0].set_title("original image")
 ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
@@ -105,7 +105,7 @@ show_pc(ax[1][0], drive_rpc, drive_conf, "driveable cloud")
 show_pc(ax[1][1], block_rpc, drive_conf, "obstacle cloud")
 
 ax[2][0].set_title("merged area")
-ax[2][0].imshow(merged)
+ax[2][0].imshow(full_occ)
 ax[2][1].set_title("line of sight")
 ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
 
