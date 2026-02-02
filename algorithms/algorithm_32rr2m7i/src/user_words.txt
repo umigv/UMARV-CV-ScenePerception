@@ -1,3 +1,3 @@
 IGVC
-SOUP
+soup
 STOP

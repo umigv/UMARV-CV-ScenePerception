@@ -16,13 +16,14 @@ count = 0
 custom_oem_psm_config = r'--oem 3 --psm 6 --user-words /content/user_words.txt'
 
 #get images
-image_dir = r'.\images'  
+# image_dir = r'.\images'  
+image_dir = r'input_images'  
 #image_dir = r'.\stop sign images'
 valid_extensions = ('.png', '.jpg', '.jpeg', '.webp')
 
 #words we wanna find
 with open('user_words.txt', 'w') as f:
-    f.write("IGVC\nSOUP\nSTOP")
+    f.write("IGVC\nsoup\nSTOP")
 
 
 for idx, filename in enumerate(os.listdir(image_dir)):
@@ -45,7 +46,8 @@ for idx, filename in enumerate(os.listdir(image_dir)):
 
         for box, confidence, class_id in zip(boxes, confidences, class_ids):
             #confidence > 80%
-            if confidence > 0.8:
+            # print(confidence)
+            if confidence > 0.2:
                 x1, y1, x2, y2 = map(int, box)
 
                 #crop it

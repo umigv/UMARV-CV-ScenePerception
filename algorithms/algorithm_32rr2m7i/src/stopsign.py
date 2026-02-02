@@ -70,7 +70,7 @@ while cap.isOpened():
                         inverted = cv2.bitwise_not(gray)
                         _, thresholded = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-                        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                        # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
                         text = pytesseract.image_to_string(thresholded, config=custom_oem_psm_config).strip()
                         
@@ -85,13 +85,13 @@ while cap.isOpened():
 
 
                         #display the text found
-                        cv2.putText(frame, f"{text} ({confidence:.2f})", (x1, y1-10), 
+                        cv2.putText(frame, f"{text} ({confidence:.2f})", (x1, y1+10), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                         if stop_found:
-                            cv2.putText(frame, f"Stop Sign", (x1, y1+20), 
+                            cv2.putText(frame, f"Stop Sign", (x1, y1+40), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                         else:
-                            cv2.putText(frame, f"Unknown", (x1, y1+20), 
+                            cv2.putText(frame, f"Unknown {text.lower()}", (x1, y1+40), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                         print(stop_found)
                         print(confidence)
