@@ -21,6 +21,7 @@ class RightTurn:
         self.height = None
 
         self.state_1_done = False
+        self.state_3_done = False
 
         self.debug = debug
 
@@ -62,10 +63,11 @@ class RightTurn:
         self.yellow_mask = dict["yellow"]
         
         # self.find_center_of_lane()
-        cv2.imshow("mask_final", self.final)
+        # cv2.imshow("mask_final", self.final)
         final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
         combined = np.vstack((self.image, final_bgr))
-        cv2.imshow("mask_combined", combined)
+        cv2.namedWindow("Combined Image", cv2.WINDOW_NORMAL)
+        cv2.imshow("Combined Image", combined)
 
     def find_center_of_lane(self):
         pass
@@ -126,8 +128,7 @@ class RightTurn:
                     x = point[0][0]
                     max_y = y
 
-        x2 = max(0, x - 150)
-        y2 = y
+        x2, y2 = max(0, x - 150), y
 
         while y2 > 0 and self.white_mask[y2, x2] != 255:
             y2 -= 1 # bring up to bottom of white line
@@ -139,13 +140,14 @@ class RightTurn:
             cv2.circle(self.final, (x2, y2), 5, 128, -1)
         
         min_x_dist = 40
-        invalid_points = (y2 == 0 and (y > self.height // 8)) or (x - x2 < min_x_dist)
+        invalid_points = (y2 == 0 and y > self.height // 8) or (x - x2 < min_x_dist)
 
         if invalid_points: # white line is probably gone, so set centroid up ahead
             self.centroid  = (self.width // 2, 40)
+            self.state_3_done = True
         else: # slope logic
             bottom_left = (0, self.height)
-            cv2.line(self.final, bottom_left, (x, y), 255, 10)
+            cv2.line(self.final, bottom_left, (x, y), 255, 10) # guiding line
 
             diff_x = x - x2
             diff_x //= 10
@@ -157,7 +159,7 @@ class RightTurn:
             initial_jump_factor = 2
             curr_x, curr_y = x + (diff_x * initial_jump_factor), y + (diff_y * initial_jump_factor)
 
-            while (curr_x > 0 and curr_x < self.width - diff_x) and (curr_y > 0 and curr_y < self.height - diff_y) and (self.white_mask[curr_y, curr_x] == 0):
+            while (curr_x > 0 and curr_x < self.width - diff_x) and (curr_y > 0 and curr_y < self.height - diff_y) and self.white_mask[curr_y, curr_x] == 0:
                 curr_x += diff_x
                 curr_y += diff_y
                 point_list.append((curr_x, curr_y))
@@ -165,8 +167,8 @@ class RightTurn:
             if self.debug:
                 [cv2.circle(self.final, point, 5, 128, -1) for point in point_list]
 
-            if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
-                self.centroid = point_list[len(point_list) // 2]
+            # if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
+            self.centroid = point_list[len(point_list) // 2]
 
                 # print(f"{self.centroid[1] / self.height}")
                 # print(f"width: {self.width}, height {self.height}")
@@ -174,6 +176,34 @@ class RightTurn:
                 # if self.centroid[1] > ((self.height // 5) * 4):
                 #     print("centroid is too low, sending it back")
                 #     self.centroid = (self.width // 2, 40)
+
+    def state_4(self, yellow_cnt):
+        # search top half of screen for white contours (will normally just one line
+        # but loop through each contour to find topmost point in case we get multiple)
+        min_y = self.height - 1
+        top_white_point = (None, None)
+        white_cnts = cv2.findContours(self.white_mask[:self.height//2, :], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for cnt in white_cnts:
+            print("current white contour: ")
+            print(cnt)
+            for point in cnt:
+                # print("Current point: ")
+                print(point)
+                if point[0, 1] < min_y:
+                    top_white_point = (point[0, 0], point[0, 1])
+                    min_y = point[0, 1]
+
+        # find topmost yellow point in contour
+        min_y = self.height - 1
+        top_yellow_point = (None, None)
+
+        for point in yellow_cnt:
+            if point[0, 1] < min_y:
+                top_yellow_point = (point[0, 0], point[0, 1])
+                min_y = point[0, 1]
+
+        cv2.line(self.final, top_white_point, top_yellow_point, 128, 10)
 
     def state_machine(self):
         if not self.state_1_done:
@@ -198,12 +228,21 @@ class RightTurn:
         if num_yellow_dashed == 0 or (best_cnt is None):
             self.state_2()
             return
-        else:
+        elif not self.state_3_done:
             self.state_3(best_cnt)
+        else:
+            best_yellow = None
+            min_y = self.height - 1
+            
+            for cnt in contours: # topmost yellow contour
+                if cv2.contourArea(cnt) > min_area and cnt[0, 0, 1] < min_y:
+                    best_yellow = cnt
+                    min_y = cnt[0, 0, 1]
+            self.state_4(best_yellow)
 
     def run(self):
         cap = cv2.VideoCapture('data/right_turn1.mp4')
-        self.hsv_obj = hsv('data/trimmed.mov')
+        self.hsv_obj = hsv('data/right_turn1.mp4')
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -215,12 +254,12 @@ class RightTurn:
 
                 cv2.circle(self.final, self.centroid, 5, 255, -1)
 
-                cv2.namedWindow("Final", cv2.WINDOW_NORMAL)
-                cv2.imshow("Final", self.final)
-                cv2.namedWindow("Yellow", cv2.WINDOW_NORMAL)
-                cv2.imshow("Yellow", self.yellow_mask)
-                cv2.namedWindow("White", cv2.WINDOW_NORMAL)
-                cv2.imshow("White", self.white_mask)
+                cv2.namedWindow("Final Mask", cv2.WINDOW_NORMAL)
+                cv2.imshow("Final Mask", self.final)
+                cv2.namedWindow("Yellow Mask", cv2.WINDOW_NORMAL)
+                cv2.imshow("Yellow Mask", self.yellow_mask)
+                cv2.namedWindow("White Mask", cv2.WINDOW_NORMAL)
+                cv2.imshow("White Mask", self.white_mask)
 
                 if self.debug:
                     print()
@@ -242,7 +281,7 @@ class RightTurn:
         self.update_mask()
 
 def main():
-    obj = RightTurn(debug = True)
+    obj = RightTurn(debug = False)
     obj.run()
 
 if __name__ == "__main__":
