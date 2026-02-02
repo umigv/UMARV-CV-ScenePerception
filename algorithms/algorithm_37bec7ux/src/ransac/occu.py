@@ -24,6 +24,7 @@ def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
     z = z.reshape(-1, 1)
     return np.concatenate((coords.astype(np.float64), z), axis=1)
 
+
 def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3):
     coords = np.argwhere(mask).astype(np.int64)
     coords[:, [0, 1]] = coords[:, [1, 0]]  # (row, col) -> (x, y)
@@ -34,25 +35,31 @@ def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3)
 
 
 def pixel_to_real(
-    pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: Intrinsics
-):
+        pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: Intrinsics, orientation: float = 0.0):
     # outputs (x,y,z) with real z as depth, y as height
     # y values are relative to the camera's height
+    # orientation (radians) is positive to orient the camera left
 
     # converts px into mm
     cloud = pixel_cloud.copy()
     cloud[:, 0] = pixel_cloud[:, 2] * (pixel_cloud[:, 0] - intr.cx) / intr.fx
     cloud[:, 1] = pixel_cloud[:, 2] * (intr.cy - pixel_cloud[:, 1]) / intr.fy
 
-    angle = ransac.plane.real_angle(real_coeffs)
-    c = math.cos(angle)
-    s = math.sin(angle)
+    depression = ransac.plane.real_angle(real_coeffs)
+    c_1 = math.cos(depression)
+    s_1 = math.sin(depression)
     # each column affects the output (x, y, z) respectively
-    rotation_matrix = np.array([[1.0, 0.0, 0.0],
-                                [0.0,   c,  -s],
-                                [0.0,   s,   c]])
+    rotation_matrix = np.array([[1.0, 0.0,  0.0],
+                                [0.0, c_1, -s_1],
+                                [0.0, s_1,  c_1]]).transpose()
 
-    return cloud @ rotation_matrix.transpose()
+    c_2 = math.cos(orientation)
+    s_2 = math.sin(orientation)
+    rotation_matrix = rotation_matrix @ np.array([[c_2, 0.0, -s_2],
+                                                  [0.0, 1.0,  0.0],
+                                                  [s_2, 0.0,  c_2]]).transpose()
+
+    return cloud @ rotation_matrix
 
 
 def constrain(points: npt.NDArray, w: int, h: int):

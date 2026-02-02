@@ -6,7 +6,8 @@ import time
 import math
 import cv2
 
-import ransac.plane, ransac.occu
+import ransac.plane
+import ransac.occu
 
 # PARAMETERS
 
@@ -23,7 +24,7 @@ f = h5py.File(filename, "r")
 # print(list(f.keys()))
 frames = len(f["depth_maps"])
 if frame_number < 0:
-    frame_number = int(math.floor(random.random() * frames))
+    frame_number = random.randint(1, frames - 2)
     print(f"Using randomised frame number: {frame_number}")
 elif frame_number >= frames:
     frame_number = frames - 1
@@ -32,7 +33,7 @@ elif frame_number >= frames:
 raw_depths = f["depth_maps"][frame_number]
 depth_map = f["depth_maps"][frame_number]
 image = f["images"][frame_number]
-image = image[:, 0 : int(image.shape[1] / 2)]
+image = image[:, 0: int(image.shape[1] / 2)]
 
 f.close()
 
@@ -54,20 +55,24 @@ real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
 drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
-drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics)
+drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics, math.pi/4)
 
 block_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
-block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics)
+block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics, math.pi/4)
 
-drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)  # in millimetres
-block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
+drive_conf = ransac.GridConfiguration(
+    5000, 5000, 50, thres=2)  # in millimetres
+block_conf = ransac.GridConfiguration(
+    5000, 5000, 50, thres=1)  # in millimetres
 drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
 block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
 full_occ = ransac.occu.composite(drive_occ, block_occ)
 
 occ_h, occ_w = full_occ.shape
-cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-los_grid = ransac.occu.create_los_grid(full_occ, [cam]) # remove cam to use morphology technique (faster)
+cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
+                           3 * math.pi / 4, math.radians(90))
+# remove cam to use morphology technique (faster)
+los_grid = ransac.occu.create_los_grid(full_occ, [cam])
 end = time.perf_counter()
 
 # DISPLAY DATA
@@ -83,6 +88,7 @@ print(f"-----\n{1000 * (end - start)} ms per frame")
 
 # PLOT THINGS
 
+
 def show_pc(axes, cloud, conf: ransac.GridConfiguration, name: str = "point cloud"):
     axes.set_title(name)
     axes.scatter(cloud[:, 0], cloud[:, 2], s=0.01)
@@ -90,8 +96,10 @@ def show_pc(axes, cloud, conf: ransac.GridConfiguration, name: str = "point clou
     axes.set_xlim((-conf.gw / 2, conf.gw / 2))
     axes.set_ylim((0, conf.gh))
 
+
 def bool_to_bgr(mat):
     return cv2.cvtColor(mat.astype(np.uint8) * 255, cv2.COLOR_GRAY2BGR)
+
 
 f, ax = plt.subplots(3, 2)
 
