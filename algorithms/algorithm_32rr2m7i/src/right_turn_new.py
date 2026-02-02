@@ -23,6 +23,8 @@ class RightTurn:
         self.state_1_done = False
         self.state_3_done = False
 
+        self.min_area = 200
+
         self.debug = debug
 
     def draw_trapezoid(self):
@@ -167,32 +169,22 @@ class RightTurn:
             if self.debug:
                 [cv2.circle(self.final, point, 5, 128, -1) for point in point_list]
 
-            # if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
             self.centroid = point_list[len(point_list) // 2]
-
-                # print(f"{self.centroid[1] / self.height}")
-                # print(f"width: {self.width}, height {self.height}")
-                # print(self.centroid)
-                # if self.centroid[1] > ((self.height // 5) * 4):
-                #     print("centroid is too low, sending it back")
-                #     self.centroid = (self.width // 2, 40)
 
     def state_4(self, yellow_cnt):
         # search top half of screen for white contours (will normally just one line
         # but loop through each contour to find topmost point in case we get multiple)
+
         min_y = self.height - 1
         top_white_point = (None, None)
-        white_cnts = cv2.findContours(self.white_mask[:self.height//2, :], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        white_cnts, _ = cv2.findContours(self.white_mask[:self.height//2, :], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for cnt in white_cnts:
-            print("current white contour: ")
-            print(cnt)
-            for point in cnt:
-                # print("Current point: ")
-                print(point)
-                if point[0, 1] < min_y:
-                    top_white_point = (point[0, 0], point[0, 1])
-                    min_y = point[0, 1]
+            if cv2.contourArea(cnt) > self.min_area:
+                for point in cnt:
+                    if point[0, 1] < min_y:
+                        top_white_point = (point[0, 0], point[0, 1])
+                        min_y = point[0, 1]
 
         # find topmost yellow point in contour
         min_y = self.height - 1
@@ -203,7 +195,11 @@ class RightTurn:
                 top_yellow_point = (point[0, 0], point[0, 1])
                 min_y = point[0, 1]
 
-        cv2.line(self.final, top_white_point, top_yellow_point, 128, 10)
+        if self.debug:
+          cv2.line(self.final, top_white_point, top_yellow_point, 128, 10)
+
+        midpoint = ((top_yellow_point[0] + top_white_point[0]) // 2, (top_yellow_point[1] + top_white_point[1]) // 2)
+        self.centroid = midpoint
 
     def state_machine(self):
         if not self.state_1_done:
@@ -212,13 +208,12 @@ class RightTurn:
             return
         
         contours, _ = cv2.findContours(self.yellow_mask[:, :self.width//2], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        min_area = 200
         best_cnt = None
         max_y = 0
         
         num_yellow_dashed = 0
         for cnt in contours: # Looping through contours
-            if cv2.contourArea(cnt) > min_area:
+            if cv2.contourArea(cnt) > self.min_area:
                 num_yellow_dashed += 1
                 
                 if cnt[0, 0, 1] > max_y and cnt[0, 0, 1] < self.height // 2:
@@ -235,7 +230,7 @@ class RightTurn:
             min_y = self.height - 1
             
             for cnt in contours: # topmost yellow contour
-                if cv2.contourArea(cnt) > min_area and cnt[0, 0, 1] < min_y:
+                if cv2.contourArea(cnt) > self.min_area and cnt[0, 0, 1] < min_y:
                     best_yellow = cnt
                     min_y = cnt[0, 0, 1]
             self.state_4(best_yellow)
