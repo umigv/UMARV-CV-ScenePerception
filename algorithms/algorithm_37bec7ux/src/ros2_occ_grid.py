@@ -227,7 +227,7 @@ def main():
 
             # >>> small change here to resolve naming conflict (cam renamed to virt_cam)
             virt_cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
-            full_occ = ransac.occu.create_los_grid(full_occ, [virt_cam])  # , [virt_cam])
+            full_occ = ransac.occu.create_los_grid(full_occ, [virt_cam])
             # <<< end of small change
 
             # >>> ros2 change
