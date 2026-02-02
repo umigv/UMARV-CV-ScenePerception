@@ -115,9 +115,9 @@ def main():
     fy = calibration_params.left_cam.fy
 
     # potentially, need to tune these
-    intr = ransac.CameraIntrinsics(w / 2, h / 2, fx / 2, fy / 2)
-    drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
-    block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)
+    intr = ransac.Intrinsics(w / 2, h / 2, fx / 2, fy / 2)
+    drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)
+    block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)
 
     image_mat = sl.Mat()
     depth_m = sl.Mat()

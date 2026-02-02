@@ -13,9 +13,10 @@ import math
 
 # TODO: create a tool to tune grid paramters (scale, rotation, translation) in real time (or on a recording)
 
+
 def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
     # coords is a Nx2 numpy array containing coordinates (x, y)
-    # pass pixel coefficients 
+    # pass pixel coefficients
 
     c1, c2, c3 = ransac_coeffs
 
@@ -23,27 +24,25 @@ def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
     z = z.reshape(-1, 1)
     return np.concatenate((coords.astype(np.float64), z), axis=1)
 
-
-def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray):
+def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3):
     coords = np.argwhere(mask).astype(np.int64)
     coords[:, [0, 1]] = coords[:, [1, 0]]  # (row, col) -> (x, y)
     depths = depth_map[coords[:, 1], coords[:, 0]].reshape(-1, 1)
 
-    return np.concatenate((coords.astype(np.float64), depths), axis=1)
+    res = np.concatenate((coords.astype(np.float64), depths), axis=1)
+    return res[0::1+skip]
 
-# outputs (x,y,z) with real z as depth, y as height
-# y value outputs are complete garbage
+
 def pixel_to_real(
-    pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: CameraIntrinsics
+    pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: Intrinsics
 ):
+    # outputs (x,y,z) with real z as depth, y as height
+    # y values are relative to the camera's height
+
     # converts px into mm
     cloud = pixel_cloud.copy()
     cloud[:, 0] = pixel_cloud[:, 2] * (pixel_cloud[:, 0] - intr.cx) / intr.fx
     cloud[:, 1] = pixel_cloud[:, 2] * (intr.cy - pixel_cloud[:, 1]) / intr.fy
-
-    # should be 0
-    # a, b, d = real_coeffs
-    # print(a * cloud[0, 0] + b * cloud[0, 1] + d - cloud[0, 2])
 
     angle = ransac.plane.real_angle(real_coeffs)
     c = math.cos(angle)
@@ -53,17 +52,17 @@ def pixel_to_real(
                                 [0.0,   c,  -s],
                                 [0.0,   s,   c]])
 
-    return cloud @ rotation_matrix.transpose() # reverse order because of format
+    return cloud @ rotation_matrix.transpose()
 
 
-def bind_idx(points: npt.NDArray, w: int, h: int):
+def constrain(points: npt.NDArray, w: int, h: int):
     points = points.astype(int)
-    valid = (points[:, 1] >= 0) & (points[:, 1] < w)
-    valid &= (points[:, 0] >= 0) & (points[:, 0] < h)
+    valid = (points[:, 0] >= 0) & (points[:, 0] < w) & (
+        points[:, 1] >= 0) & (points[:, 1] < h)
     return points[valid]
 
 
-def occupancy_grid(real_pc: npt.NDArray, conf: OccupancyGridConfiguration):
+def occupancy_grid(real_pc: npt.NDArray, conf: GridConfiguration):
     width = conf.gw // conf.cw
     height = conf.gh // conf.cw
 
@@ -72,7 +71,7 @@ def occupancy_grid(real_pc: npt.NDArray, conf: OccupancyGridConfiguration):
     real_pc = real_pc.astype(np.int16)
     real_pc[:, 0] = width // 2 + (real_pc[:, 0] // conf.cw)
     real_pc[:, 1] = height - 1 - (real_pc[:, 1] // conf.cw)
-    real_pc = bind_idx(real_pc, height, width)  # reversed order because x, y not y, x
+    real_pc = constrain(real_pc, width, height)
 
     cnt = np.bincount(real_pc[:, 1] * width + real_pc[:, 0])
     cnt = np.resize(cnt, (height, width))
@@ -83,11 +82,10 @@ def occupancy_grid(real_pc: npt.NDArray, conf: OccupancyGridConfiguration):
 
 
 def composite(drive_occ: npt.NDArray, block_occ: npt.NDArray):
-    merged = drive_occ & (block_occ != 1)
-    merged = merged.astype(np.uint8) * 255
-    unknown = block_occ | drive_occ != 1
-    merged[unknown] = 127
-    return merged
+    full = drive_occ & (block_occ != 1)
+    full = full.astype(np.uint8) * 255
+    full[(block_occ | drive_occ) != 1] = 127
+    return full
 
 
 def fast_los_grid(merged: npt.NDArray, iters=10):
@@ -163,9 +161,7 @@ def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
         merged[cam.i, cam.j] = 255
         for end_i, end_j in zip(idx, jdx):
             state = 255
-            line = skimage.draw.line(
-                cam.i, cam.j, end_i, end_j
-            )  # FIXME: bottleneck is this function
+            line = skimage.draw.line(cam.i, cam.j, end_i, end_j)
             for p in range(len(line[0])):
                 if merged[line[0][p], line[1][p]] == 0:
                     state = 0

@@ -14,7 +14,7 @@ filename = "res/perspective_test.svo2.hdf5"
 frame_number = -1
 
 iters = 50
-kernel = (1, 16)  # kernel is rows, columns
+kernel = (2, 32)  # kernel is rows, columns
 tolerance = 0.1
 
 # INPUT FILTERING (@the2nake)
@@ -42,14 +42,14 @@ start = time.perf_counter()
 
 cleaned_depths = ransac.plane.clean_depths(raw_depths)
 driveable, ransac_coeffs = ransac.plane.hsv_and_ransac(
-    image, cleaned_depths, 60, (1, 16), 0.15
+    image, cleaned_depths, iters, kernel, tolerance
 )
 ransac_output = driveable  # [100:, :]
 
 fx = 360
 
 h, w = depth_map.shape
-intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
+intrinsics = ransac.Intrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
@@ -59,8 +59,8 @@ drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics)
 block_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
 block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics)
 
-drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
-block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
+drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)  # in millimetres
+block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
 drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
 block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
 full_occ = ransac.occu.composite(drive_occ, block_occ)
@@ -74,13 +74,16 @@ end = time.perf_counter()
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
-print(drive_rpc)
 
 print("-----")
 
+print(f"-----\n{1000 * (end - start)} ms per frame")
+
+# exit()
+
 # PLOT THINGS
 
-def show_pc(axes, cloud, conf: ransac.OccupancyGridConfiguration, name: str = "point cloud"):
+def show_pc(axes, cloud, conf: ransac.GridConfiguration, name: str = "point cloud"):
     axes.set_title(name)
     axes.scatter(cloud[:, 0], cloud[:, 2], s=0.01)
     axes.set_aspect("equal", adjustable="box")
@@ -110,8 +113,6 @@ ax[2][1].set_title("line of sight")
 ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
 
 plt.show()
-
-print(f"-----\n{1000 * (end - start)} ms per frame")
 
 # c1, c2, c3 = best_coeffs
 # ys, xs = np.indices((h, w))
