@@ -3,10 +3,10 @@
         "white": {
             "h_upper": 179,
             "h_lower": 0,
-            "s_upper": 86,
+            "s_upper": 218,
             "s_lower": 0,
             "v_upper": 255,
-            "v_lower": 217
+            "v_lower": 212
         },
         "yellow": {
             "h_upper": 179,
@@ -31,6 +31,14 @@
             "s_lower": 96,
             "v_upper": 255,
             "v_lower": 231
+        },
+        "old_white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 86,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 217
         }
     },
     "data/left_turn_full.mp4": {

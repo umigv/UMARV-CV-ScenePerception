@@ -7,11 +7,11 @@ class RightTurn:
     def __init__(self, debug = False):
         self.image = None
         self.hsv_image = None
+
         self.white_mask = None
         self.yellow_mask = None
+
         self.final = None
-        
-        self.yellow_found = False
 
         self.hsv_obj = None
 
@@ -21,7 +21,6 @@ class RightTurn:
         self.height = None
 
         self.state_1_done = False
-        self.state_4_done = False
 
         self.debug = debug
 
@@ -33,8 +32,8 @@ class RightTurn:
 
         # Define the trapezoid points
         pts = np.array([
-            [top_width_start, 400],  # Top-left
-            [top_width_end, 400],    # Top-right
+            [top_width_start, 400],               # Top-left
+            [top_width_end, 400],                 # Top-right
             [bottom_width_end, self.height],      # Bottom-right
             [bottom_width_start, self.height]     # Bottom-left
         ], dtype=np.int32)
@@ -98,10 +97,6 @@ class RightTurn:
         # This is for the point where we have crossed the 
         # stopping line but have yet to see the yellow
         # Also revert to this state after state 1 and if in state 2 and no yellow
-        # point1 = (0, int(0.25*self.height))
-        # point2 = (int(0.125*self.width), self.height)
-        # cv2.line(self.final, (int(0.6 * self.width), 0), (self.width, self.height), 255, 10) #right line
-        # cv2.line(self.final, point1, point2, 255, 10) #left line
 
         self.draw_trapezoid()
 
@@ -117,7 +112,6 @@ class RightTurn:
 
     def state_3(self, best_cnt):
         # state3: the case where we're mid-turn and can see the yellow dashed line
-        # using cv2 contours, detect and draw temp lane lines
         if self.debug:
             print("state 3")
 
@@ -132,52 +126,54 @@ class RightTurn:
                     x = point[0][0]
                     max_y = y
 
-        if (x is not None) and (y is not None):
-            x2 = max(0, x - 150)
-            y2 = y
+        x2 = max(0, x - 150)
+        y2 = y
 
-            while y2 > 0 and self.final[y2, x2] != 255:
-                y2 -= 1 # bring up to bottom of white line
-            while y2 > 0 and self.final[y2, x2] != 0:
-                y2 -= 1 # bring up to top of white line
+        while y2 > 0 and self.white_mask[y2, x2] != 255:
+            y2 -= 1 # bring up to bottom of white line
+        while y2 > 0 and self.white_mask[y2, x2] != 0:
+            y2 -= 1 # bring up to top of white line
+
+        if self.debug:
+            cv2.circle(self.final, (x, y), 5, 128, -1)
+            cv2.circle(self.final, (x2, y2), 5, 128, -1)
+        
+        min_x_dist = 40
+        invalid_points = (y2 == 0 and (y > self.height // 8)) or (x - x2 < min_x_dist)
+
+        if invalid_points: # white line is probably gone, so set centroid up ahead
+            self.centroid  = (self.width // 2, 40)
+        else: # slope logic
+            bottom_left = (0, self.height)
+            cv2.line(self.final, bottom_left, (x, y), 255, 10)
+
+            diff_x = x - x2
+            diff_x //= 10
+            diff_y = y - y2
+            diff_y //= 10
+
+            point_list = []
+            
+            initial_jump_factor = 2
+            curr_x, curr_y = x + (diff_x * initial_jump_factor), y + (diff_y * initial_jump_factor)
+
+            while (curr_x > 0 and curr_x < self.width - diff_x) and (curr_y > 0 and curr_y < self.height - diff_y) and (self.white_mask[curr_y, curr_x] == 0):
+                curr_x += diff_x
+                curr_y += diff_y
+                point_list.append((curr_x, curr_y))
 
             if self.debug:
-                cv2.circle(self.final, (x, y), 5, 128, -1)
-                cv2.circle(self.final, (x2, y2), 5, 128, -1)
-            
-            min_x_dist = 40
-            # invalid_points = ((y2 == 0) or y > self.height // 3) or (x - x2 < min_x_dist)
-            invalid_points = (y2 == 0 and (y > self.height // 8)) or (x - x2 < min_x_dist)
+                [cv2.circle(self.final, point, 5, 128, -1) for point in point_list]
 
-            if invalid_points: # white line is probably gone, so set centroid up ahead
-                self.centroid  = (self.width // 2, 40)
-            else: # slope logic
-                diff_x = x - x2
-                diff_x //= 10
-                diff_y = y - y2
-                diff_y //= 10
+            if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
+                self.centroid = point_list[len(point_list) // 2]
 
-                point_list = []
-                
-                initial_jump_factor = 2
-                curr_x, curr_y = x + (diff_x * initial_jump_factor), y + (diff_y * initial_jump_factor)
-
-                while (curr_x > 0 and curr_x < self.width - diff_x) and (curr_y > 0 and curr_y < self.height - diff_y) and (self.final[curr_y, curr_x] == 0):
-                    curr_x += diff_x
-                    curr_y += diff_y
-                    point_list.append((curr_x, curr_y))
-
-                [cv2.circle(self.final, point, 5, 128, -1) for point in point_list if self.debug]
-
-                if (len(point_list) // 2) >= 0 and len(point_list) // 2 < len(point_list):
-                    self.centroid = point_list[len(point_list) // 2]
-
-                    # print(f"{self.centroid[1] / self.height}")
-                    # print(f"width: {self.width}, height {self.height}")
-                    # print(self.centroid)
-                    # if self.centroid[1] > ((self.height // 5) * 4):
-                    #     print("centroid is too low, sending it back")
-                    #     self.centroid = (self.width // 2, 40)
+                # print(f"{self.centroid[1] / self.height}")
+                # print(f"width: {self.width}, height {self.height}")
+                # print(self.centroid)
+                # if self.centroid[1] > ((self.height // 5) * 4):
+                #     print("centroid is too low, sending it back")
+                #     self.centroid = (self.width // 2, 40)
 
     def state_machine(self):
         if not self.state_1_done:
@@ -195,7 +191,7 @@ class RightTurn:
             if cv2.contourArea(cnt) > min_area:
                 num_yellow_dashed += 1
                 
-                if cnt[0, 0, 1] > max_y and cnt[0, 0, 0] < self.width // 2 and cnt[0, 0, 1] < self.height // 2:
+                if cnt[0, 0, 1] > max_y and cnt[0, 0, 1] < self.height // 2:
                     max_y = cnt[0, 0, 1]
                     best_cnt = cnt
                     
@@ -246,7 +242,7 @@ class RightTurn:
         self.update_mask()
 
 def main():
-    obj = RightTurn(debug = False)
+    obj = RightTurn(debug = True)
     obj.run()
 
 if __name__ == "__main__":
