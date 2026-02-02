@@ -33,7 +33,7 @@ def get_seg_mask(img):
     mask1 = get_white_mask(imagehsv)
     # mask2 = get_red_mask(imagehsv)
     # mask3 = get_blue_mask(imagehsv)
-    # mask4 = get_green_mask(imagehsv)
+    mask4 = get_green_mask(imagehsv)
     # mask5 = get_yellow_mask(imagehsv)
     
     # final_mask = cv2.bitwise_or(mask1, mask2)
@@ -58,4 +58,4 @@ def get_seg_mask(img):
     
     
 if __name__ == '__main__':
-    get_seg_mask('/Users/mgawthro/Desktop/UMARV/UMARV-CV-ScenePerception/algorithms/algorithm_32rr2m7i/initial_work/data/000003.jpg')
+    get_seg_mask('data/trimmed_ramp.mp4')
