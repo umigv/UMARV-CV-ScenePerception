@@ -43,8 +43,8 @@ cam = sl.Camera()
 
 class OccGridPublisher(Node):
     def __init__(self, width: int, height: int, resolution: float):
-        super().__init__('occ_grid_publisher')
-        self.pub = self.create_publisher(OccupancyGrid, 'occ_grid', 10)
+        super().__init__('occ_grid_publisher_right')
+        self.pub = self.create_publisher(OccupancyGrid, 'occ_grid/right', 10)
         self.width = width
         self.height = height
         self.resolution = resolution
@@ -125,6 +125,7 @@ def main():
 
     init = sl.InitParameters()
     # Set configuration parameters for the ZED
+    init.set_from_serial_number(39394535) #change based on right camera serial
     init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
     # This parameter can be used to record SVO in camera FPS even if  the grab loop is running at a lower FPS (due to compute for ex.)
