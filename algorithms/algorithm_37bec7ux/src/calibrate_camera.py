@@ -217,19 +217,18 @@ def main():
 
     angle = 20
     displacement = 5
+    occ1 = np.random.randint(0, 2, (GRID_SIZE, GRID_SIZE), np.uint8)
+    occ2 = np.random.randint(0, 2, (GRID_SIZE, GRID_SIZE), np.uint8)
+
+    pc1 = np.random.randint(0, GRID_SIZE*2, (NUM_POINTS, 2))
+    pc2 = np.random.randint(0, GRID_SIZE*2, (NUM_POINTS, 2))
+
+
+    merged_occ = np.maximum(occ1, occ2)
+    merged_pc = np.vstack([pc1, pc2])
 
     while True:
-
-        occ1 = np.random.randint(0, 2, (GRID_SIZE, GRID_SIZE), np.uint8)
-        occ2 = np.random.randint(0, 2, (GRID_SIZE, GRID_SIZE), np.uint8)
-
-        pc1 = np.random.randint(0, GRID_SIZE, (NUM_POINTS, 2))
-        pc2 = np.random.randint(0, GRID_SIZE, (NUM_POINTS, 2))
-
-
-        merged_occ = np.maximum(occ1, occ2)
-        merged_pc = np.vstack([pc1, pc2])
-
+            
 
         ui.render(
             occ1=occ1,

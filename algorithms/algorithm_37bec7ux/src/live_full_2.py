@@ -125,6 +125,18 @@ def main():
     image_mat = sl.Mat()
     depth_m = sl.Mat()
 
+    ui = CameraMergeUI(grid_size=60)
+    angle_deg, displacement_cm = 0, 0 # camera centered, facing forward.
+    occ1 = np.random.randint(0, 2, (60, 60), np.uint8)
+    occ2 = np.random.randint(0, 2, (60, 60), np.uint8)
+    pc1 = np.random.randint(0, 60, (60, 2))
+    pc2 = np.random.randint(0, 60, (60, 2))
+
+
+    merged_occ = np.maximum(occ1, occ2)
+    merged_pc = np.vstack([pc1, pc2])
+
+
     key = 0
     while key != 113:  # for 'q' key
         err = cam.grab(runtime)
@@ -149,11 +161,21 @@ def main():
 
             drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
             drive_rpc = ransac.occu.pixel_to_real(
-                drive_ppc, real_coeffs, intr, orientation=)
+                drive_ppc, real_coeffs, intr, orientation=(angle_deg/360)*math.pi) # rotate by (angle_deg/2)
             block_ppc = ransac.occu.create_point_cloud(
                 ransac_output != 1, depths)
             block_rpc = ransac.occu.pixel_to_real(
-                block_ppc, real_coeffs, intr)
+                block_ppc, real_coeffs, intr, orientation=(angle_deg/360)*math.pi) # rotate by (angle_deg/2)
+            
+            # Project onto 2d (x, z), add x offset
+
+            x_offset = np.ones(drive_rpc.shape[0]) * (displacement_cm / 10)
+
+            drive_rpc_2d = np.delete(drive_rpc, (1), axis=1)
+            drive_rpc_2d[:, 0] = drive_rpc_2d[:, 0] + x_offset
+
+            block_rpc_2d = np.delete(block_rpc, (1), axis=1)
+            block_rpc_2d[:, 0] = block_rpc_2d[:, 0] + x_offset
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
@@ -161,7 +183,7 @@ def main():
 
             occ_h, occ_w = full_occ.shape
             vcam = ransac.VirtualCamera(
-                occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
+                occ_h - 1, occ_w // 2 + (displacement_cm/10), math.pi / 2, math.radians(110)) # add x-offset to vcam line of sight
             full_occ = ransac.occu.create_los_grid(full_occ, [vcam])
 
             full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
@@ -169,6 +191,25 @@ def main():
                 full_occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
             )
             cv2.imshow("occupancy grid", full_occ)
+
+
+            ui.render(
+                occ1=full_occ,
+                occ2=occ2,
+                pc1=drive_rpc_2d,
+                pc2=block_rpc_2d,
+                merged_occ=merged_occ,
+                merged_pc=merged_pc,
+                angle=angle_deg,
+                displacement=displacement_cm
+            )
+
+            
+            key, angle_deg, displacement_cm = ui.handle_keyboard(angle_deg, displacement_cm)
+
+            if key in (27, ord('q')):
+                break
+
 
             x = w // 2
             y = h // 2
