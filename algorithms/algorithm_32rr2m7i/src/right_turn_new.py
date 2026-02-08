@@ -142,7 +142,7 @@ class RightTurn:
         min_x_dist = 40
         invalid_points = (y2 == 0 and y > self.height // 8) or (x - x2 < min_x_dist)
 
-        if invalid_points: # white line is probably gone, so set centroid up ahead
+        if invalid_points: # white line is probably gone, so finish the state
             self.centroid  = (self.width // 2, 40)
             self.state_3_done = True
         else: # slope logic
@@ -196,8 +196,10 @@ class RightTurn:
         if self.debug:
           cv2.line(self.final, top_white_point, top_yellow_point, 128, 10)
 
-        midpoint = ((top_yellow_point[0] + top_white_point[0]) // 2, (top_yellow_point[1] + top_white_point[1]) // 2)
-        self.centroid = midpoint
+        avg_x = (top_yellow_point[0] + top_white_point[0]) // 2
+        avg_y = (top_yellow_point[1] + top_white_point[1]) // 2
+
+        self.centroid = (avg_x, avg_y)
 
     def state_machine(self):
         if not self.state_1_done:
