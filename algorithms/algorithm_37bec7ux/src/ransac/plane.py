@@ -110,7 +110,7 @@ def hsv_and_ransac(image, *args):
     return driveable.astype(bool), coeffs
 
 
-def real_coeffs(best_coeffs, intrinsics: CameraIntrinsics):
+def real_coeffs(best_coeffs, intrinsics: Intrinsics):
     c1, c2, c3 = best_coeffs
     # d = depth at the focal point
     d = 1 / (c1 * intrinsics.cx + c2 * intrinsics.cy + c3)
