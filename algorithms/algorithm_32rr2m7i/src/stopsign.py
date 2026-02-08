@@ -7,14 +7,15 @@ import numpy as np
 model = YOLO('./data/stopsigns.pt')
 
 
-custom_oem_psm_config = r'--oem 3 --psm 6'
+custom_oem_psm_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+# this assumes there are no numbers
 
 # seek out the words from comp **ADD THE NAME OF FAKES!
 with open('user_words.txt', 'w') as f:
     f.write("IGVC\nSOUP\nSTOP")
 
 # pick video stream
-cap = cv2.VideoCapture("./data/stopvid.mp4")  
+cap = cv2.VideoCapture("./data/soupSign.mp4")  
 frame_count = 0
 process_per_frame = 10
 while cap.isOpened():
@@ -45,14 +46,20 @@ while cap.isOpened():
                 
                 # red mask
                 hsv = cv2.cvtColor(cropped, cv2.COLOR_BGR2HSV)
+                # something from last year idk what this does (green-blue range colors?)
                 lower_red1 = np.array([0, 70, 50])
                 upper_red1 = np.array([10, 255, 255])
                 lower_red2 = np.array([160, 70, 50])
                 upper_red2 = np.array([180, 255, 255])
+
                 mask = cv2.bitwise_or(
                     cv2.inRange(hsv, lower_red1, upper_red1),
                     cv2.inRange(hsv, lower_red2, upper_red2)
                 )
+
+                # temporarily overrides all ranges
+                # mask = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([255, 255, 255]))
+                
                 #find red 
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
@@ -63,7 +70,8 @@ while cap.isOpened():
                     #ratio-based crop, ESTIMATION of best based on trial error
                     if red_cropped.size > 0:
                         h, w = red_cropped.shape[:2]
-                        final_crop = red_cropped[int(h/4):int(h-h/4), int(w/27):int(w-w/27)]
+                        # w/27 originally
+                        final_crop = red_cropped[int(h/4):int(h-h/4), int(w/10):int(w-w/23)]
                         
                         #OCR
                         gray = cv2.cvtColor(final_crop, cv2.COLOR_BGR2GRAY)
@@ -95,10 +103,17 @@ while cap.isOpened():
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                         print(stop_found)
                         print(confidence)
-            else:
-                print("Unknown")
-                cv2.putText(frame, f"Unknown", (100, 100), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+                    else:
+                        cv2.putText(frame, f"Unknown {text.lower()}", (x1, y1+40), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                else:
+                    print("Unknown")
+                    cv2.putText(frame, f"Unknown", (100, 100), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+            # else:
+            #     print("Unknown")
+            #     cv2.putText(frame, f"Unknown", (100, 100), 
+            #                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
     #display stuff for GUI/ not necessary for functionality
     cv2.imshow('Stop Sign Detection', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):

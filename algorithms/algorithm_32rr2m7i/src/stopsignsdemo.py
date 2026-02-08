@@ -13,7 +13,7 @@ os.makedirs(output_dir, exist_ok=True)
 os.makedirs(input_dir, exist_ok=True)
 count = 0
 
-custom_oem_psm_config = r'--oem 3 --psm 6 --user-words /content/user_words.txt'
+custom_oem_psm_config = r'--oem 3 --psm 6 --user-words /content/user_words.txt -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 #get images
 # image_dir = r'.\images'  
@@ -47,11 +47,21 @@ for idx, filename in enumerate(os.listdir(image_dir)):
         for box, confidence, class_id in zip(boxes, confidences, class_ids):
             #confidence > 80%
             # print(confidence)
-            if confidence > 0.2:
+            if confidence > 0.8:
                 x1, y1, x2, y2 = map(int, box)
 
                 #crop it
                 cropped_image = image[y1:y2, x1:x2]
+                # new idea
+
+                # CROP_FACTOR_Y = 0.2 * (y2 - y1)
+                # CROP_FACTOR_X = 0.04 * (x2 - x1)
+
+                # y1 += int(CROP_FACTOR_Y)
+                # y2 -= int(CROP_FACTOR_Y)
+                # x1 += int(CROP_FACTOR_X)
+                # x2 -= int(CROP_FACTOR_X)
+                # cropped_image = image[y1:y2, x1:x2]
 
                 plt.figure(figsize=(15, 8))  
 
@@ -73,6 +83,9 @@ for idx, filename in enumerate(os.listdir(image_dir)):
                 upper_red1 = np.array([10, 255, 255])
                 lower_red2 = np.array([160, 70, 50])
                 upper_red2 = np.array([180, 255, 255])
+                # temporarily allow all colors
+                # lower_red2 = np.array([0, 0, 0])
+                # upper_red2 = np.array([255, 255, 255])
 
                 mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
                 mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
@@ -107,8 +120,8 @@ for idx, filename in enumerate(os.listdir(image_dir)):
                     realy2 = int(h - (h / 4))
                     # realx1 = int(w / 14)
                     # realx2 = int(w - (w / 14))
-                    realx1 = int(w / 27)
-                    realx2 = int(w - (w / 27))
+                    realx1 = int(w / 23)
+                    realx2 = int(w - (w / 23))
 
                     if realy2 > realy1 and realx2 > realx1:
                         final_crop = red_cropped[realy1:realy2, realx1:realx2]
@@ -159,7 +172,7 @@ for idx, filename in enumerate(os.listdir(image_dir)):
 
                 
                 print(f"\nProcessing {filename}:")
-                print(f"Detected text: {text}")
+                print(f"Detected text: {text}") # make text lower for uniformity
                 print(f"Confidence: {confidence:.2f}")
                 print(f"Class ID: {class_id}")
 
