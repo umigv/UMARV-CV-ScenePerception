@@ -63,9 +63,7 @@ class RightTurn:
         
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
-        
-        # self.find_center_of_lane()
-        # cv2.imshow("mask_final", self.final)
+
         final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
         combined = np.vstack((self.image, final_bgr))
         cv2.namedWindow("Combined Image", cv2.WINDOW_NORMAL)
@@ -97,7 +95,7 @@ class RightTurn:
         if self.debug:
             print("state 2")
 
-        # induce a constant left turn with waypoint in top corner
+        # induce a constant right turn with waypoint in top corner
         # This is for the point where we have crossed the 
         # stopping line but have yet to see the yellow
         # Also revert to this state after state 1 and if in state 2 and no yellow
@@ -225,7 +223,7 @@ class RightTurn:
             return
         elif not self.state_3_done:
             self.state_3(best_cnt)
-        else:
+        else: # state 4
             best_yellow = None
             min_y = self.height - 1
             
