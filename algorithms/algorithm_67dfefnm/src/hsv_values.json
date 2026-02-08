@@ -1,0 +1,12 @@
+{
+    "data/ramp.MOV": {
+        "ramp_color": {
+            "h_upper": 66,
+            "h_lower": 15,
+            "s_upper": 213,
+            "s_lower": 56,
+            "v_upper": 255,
+            "v_lower": 77
+        }
+    }
+}
