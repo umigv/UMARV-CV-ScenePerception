@@ -238,6 +238,24 @@ class RightTurn:
     def run(self):
         cap = cv2.VideoCapture('data/right_turn1.mp4')
         self.hsv_obj = hsv('data/right_turn1.mp4')
+
+        # "white": {
+        #     "h_upper": 179,
+        #     "h_lower": 0,
+        #     "s_upper": 218,
+        #     "s_lower": 0,
+        #     "v_upper": 255,
+        #     "v_lower": 212
+        # },
+        # "yellow": {
+        #     "h_upper": 179,
+        #     "h_lower": 23,
+        #     "s_upper": 255,
+        #     "s_lower": 150,
+        #     "v_upper": 255,
+        #     "v_lower": 200
+        # }
+        # backup of values from json
         
         while cap.isOpened():
             ret, self.image = cap.read()
