@@ -6,7 +6,8 @@ import time
 import math
 import cv2
 
-import ransac.plane, ransac.occu
+import ransac.plane
+import ransac.occu
 
 # PARAMETERS
 
@@ -14,7 +15,7 @@ filename = "res/perspective_test.svo2.hdf5"
 frame_number = -1
 
 iters = 50
-kernel = (1, 16)  # kernel is rows, columns
+kernel = (2, 32)  # kernel is rows, columns
 tolerance = 0.1
 
 # INPUT FILTERING (@the2nake)
@@ -23,7 +24,7 @@ f = h5py.File(filename, "r")
 # print(list(f.keys()))
 frames = len(f["depth_maps"])
 if frame_number < 0:
-    frame_number = int(math.floor(random.random() * frames))
+    frame_number = random.randint(1, frames - 2)
     print(f"Using randomised frame number: {frame_number}")
 elif frame_number >= frames:
     frame_number = frames - 1
@@ -32,7 +33,7 @@ elif frame_number >= frames:
 raw_depths = f["depth_maps"][frame_number]
 depth_map = f["depth_maps"][frame_number]
 image = f["images"][frame_number]
-image = image[:, 0 : int(image.shape[1] / 2)]
+image = image[:, 0: int(image.shape[1] / 2)]
 
 f.close()
 
@@ -42,58 +43,68 @@ start = time.perf_counter()
 
 cleaned_depths = ransac.plane.clean_depths(raw_depths)
 driveable, ransac_coeffs = ransac.plane.hsv_and_ransac(
-    image, cleaned_depths, 60, (1, 16), 0.15
+    image, cleaned_depths, iters, kernel, tolerance
 )
 ransac_output = driveable  # [100:, :]
 
 fx = 360
 
 h, w = depth_map.shape
-intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, fx, fx)
+intrinsics = ransac.Intrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
 drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
-drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics)
+drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics, math.pi/4)
 
 block_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
-block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics)
+block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics, math.pi/4)
 
-drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)  # in millimetres
-block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=1)  # in millimetres
+drive_conf = ransac.GridConfiguration(
+    5000, 5000, 50, thres=2)  # in millimetres
+block_conf = ransac.GridConfiguration(
+    5000, 5000, 50, thres=1)  # in millimetres
 drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
 block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-merged = ransac.occu.merge(drive_occ, block_occ)
+full_occ = ransac.occu.composite(drive_occ, block_occ)
 
-occ_h, occ_w = merged.shape
-cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-los_grid = ransac.occu.create_los_grid(merged, [cam]) # remove cam to use morphology technique (faster)
+occ_h, occ_w = full_occ.shape
+cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
+                           3 * math.pi / 4, math.radians(90))
+# remove cam to use morphology technique (faster)
+los_grid = ransac.occu.create_los_grid(full_occ, [cam])
 end = time.perf_counter()
 
 # DISPLAY DATA
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
-print(drive_rpc)
 
 print("-----")
 
+print(f"-----\n{1000 * (end - start)} ms per frame")
+
+# exit()
+
 # PLOT THINGS
 
-def show_pc(axes, cloud, conf: ransac.OccupancyGridConfiguration, name: str = "point cloud"):
+
+def show_pc(axes, cloud, conf: ransac.GridConfiguration, name: str = "point cloud"):
     axes.set_title(name)
     axes.scatter(cloud[:, 0], cloud[:, 2], s=0.01)
     axes.set_aspect("equal", adjustable="box")
     axes.set_xlim((-conf.gw / 2, conf.gw / 2))
     axes.set_ylim((0, conf.gh))
 
+
 def bool_to_bgr(mat):
     return cv2.cvtColor(mat.astype(np.uint8) * 255, cv2.COLOR_GRAY2BGR)
+
 
 f, ax = plt.subplots(3, 2)
 
 ransac_output = ransac_output.astype(np.uint8) * 255
-merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
+full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
 
 ax[0][0].set_title("original image")
 ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
@@ -105,13 +116,11 @@ show_pc(ax[1][0], drive_rpc, drive_conf, "driveable cloud")
 show_pc(ax[1][1], block_rpc, drive_conf, "obstacle cloud")
 
 ax[2][0].set_title("merged area")
-ax[2][0].imshow(merged)
+ax[2][0].imshow(full_occ)
 ax[2][1].set_title("line of sight")
 ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
 
 plt.show()
-
-print(f"-----\n{1000 * (end - start)} ms per frame")
 
 # c1, c2, c3 = best_coeffs
 # ys, xs = np.indices((h, w))

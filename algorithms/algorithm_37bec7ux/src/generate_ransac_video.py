@@ -64,7 +64,7 @@ def main():
         )
 
         # TODO: load the actual intrinsics from the h5py
-        intrinsics = ransac.CameraIntrinsics(w / 2, h / 2, 600 / 2, 600 / 2)
+        intrinsics = ransac.Intrinsics(w / 2, h / 2, 600 / 2, 600 / 2)
         real_coeffs = ransac.plane.real_coeffs(c, intrinsics)
         rad = ransac.plane.real_angle(real_coeffs)
         masked = cv2.putText(

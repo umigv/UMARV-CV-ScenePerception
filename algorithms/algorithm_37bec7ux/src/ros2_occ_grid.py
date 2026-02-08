@@ -24,7 +24,8 @@ from signal import signal, SIGINT
 import argparse
 import os
 import cv2
-import ransac.plane, ransac.occu
+import ransac.plane
+import ransac.occu
 import numpy as np
 import math
 
@@ -38,6 +39,8 @@ from nav_msgs.msg import OccupancyGrid, MapMetaData
 cam = sl.Camera()
 
 # >>> ros2 change
+
+
 class OccGridPublisher(Node):
     def __init__(self, width: int, height: int, resolution: float):
         super().__init__('occ_grid_publisher')
@@ -64,7 +67,7 @@ class OccGridPublisher(Node):
         ros[flat == 255] = 0   # free
 
         ros = np.flipud(ros)
-        #ros = np.rot90(ros, k=3)
+        # ros = np.rot90(ros, k=3)
 
         msg.data = ros.flatten().tolist()
 
@@ -120,9 +123,9 @@ def main():
     rclpy.init()
     # <<< ros2 end of change
 
-
     init = sl.InitParameters()
-    init.depth_mode = sl.DEPTH_MODE.NEURAL  # Set configuration parameters for the ZED
+    # Set configuration parameters for the ZED
+    init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
     # This parameter can be used to record SVO in camera FPS even if  the grab loop is running at a lower FPS (due to compute for ex.)
 
@@ -175,12 +178,11 @@ def main():
     fx_scaled = fx_full * sx
     fy_scaled = fy_full * sy
 
-    intrinsics = ransac.CameraIntrinsics(cx_scaled, cy_scaled, fx_scaled, fy_scaled)
+    intrinsics = ransac.Intrinsics(cx_scaled, cy_scaled, fx_scaled, fy_scaled)
     # <<< end of change
 
-
-    drive_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
-    block_conf = ransac.OccupancyGridConfiguration(5000, 5000, 50, thres=5)
+    drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=5)
+    block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)
 
     # >>> ros2 change
     grid_width = drive_conf.gw // drive_conf.cw
@@ -189,7 +191,6 @@ def main():
     cell_resolution_m = drive_conf.cw / 1000.0
     occ_node = OccGridPublisher(grid_width, grid_height, cell_resolution_m)
     # <<< ros2 end of change
-
 
     image_mat = sl.Mat()
     depth_m = sl.Mat()
@@ -200,47 +201,50 @@ def main():
         if err <= sl.ERROR_CODE.SUCCESS:  # good to go
             # FIXME pointing camera at only the ground causing a crash
             cam.retrieve_image(image_mat, sl.VIEW.LEFT, sl.MEM.CPU, low_res)
-            cam.retrieve_measure(depth_m, sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+            cam.retrieve_measure(
+                depth_m, sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
 
             image = image_mat.get_data()
             depths = ransac.plane.clean_depths(depth_m.get_data())
 
             # ACTUAL USE
-            #ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
-            
+            # ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
+
             # GROUND ONLY
-            ransac_output, ransac_coeffs = ransac.plane.ground_plane(depths, 60, (1, 16), 0.15)
+            ransac_output, ransac_coeffs = ransac.plane.ground_plane(
+                depths, 60, (1, 16), 0.15)
 
             rc = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
             rad = ransac.plane.real_angle(rc)
 
-            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
+            drive_ppc = ransac.occu.create_point_cloud(
+                ransac_output, depths, skip=3)
             drive_rpc = ransac.occu.pixel_to_real(drive_ppc, rc, intrinsics)
-            block_ppc = ransac.occu.create_point_cloud(ransac_output != 1, depths)
+            block_ppc = ransac.occu.create_point_cloud(
+                ransac_output != 1, depths, skip=3)
             block_rpc = ransac.occu.pixel_to_real(block_ppc, rc, intrinsics)
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-            merged = ransac.occu.merge(drive_occ, block_occ)
+            full_occ = ransac.occu.composite(drive_occ, block_occ)
 
-            occ_h, occ_w = merged.shape
+            occ_h, occ_w = full_occ.shape
 
             # >>> small change here to resolve naming conflict (cam renamed to virt_cam)
-            virt_cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.pi / 2)
-            merged = ransac.occu.create_los_grid(merged, [virt_cam])  # , [virt_cam])
+            virt_cam = ransac.VirtualCamera(
+                occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
+            full_occ = ransac.occu.create_los_grid(full_occ, [virt_cam])
             # <<< end of small change
 
             # >>> ros2 change
-            zeros_block = np.ones_like(merged[-1, :]) * 255
-            merged[-1, :] = zeros_block
-            occ_node.publish(merged)
+            occ_node.publish(full_occ)
             # <<< ros2 end of change
 
-            merged = cv2.cvtColor(merged, cv2.COLOR_GRAY2BGR)
-            merged = cv2.resize(
-                merged, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
+            full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
+            full_occ = cv2.resize(
+                full_occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
             )
-            cv2.imshow("occupancy grid", merged)
+            cv2.imshow("occupancy grid", full_occ)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 
@@ -259,7 +263,6 @@ def main():
     # >>> ros2 change
     rclpy.shutdown()
     # <<< ros2 end of change
-
 
 
 if __name__ == "__main__":
