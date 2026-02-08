@@ -231,6 +231,8 @@ def main():
             # <<< end of small change
 
             # >>> ros2 change
+            zeros_block = np.ones_like(merged[-1, :]) * 255
+            merged[-1, :] = zeros_block
             occ_node.publish(merged)
             # <<< ros2 end of change
 
