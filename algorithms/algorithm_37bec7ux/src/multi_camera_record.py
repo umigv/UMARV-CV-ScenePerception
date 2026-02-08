@@ -94,7 +94,7 @@ def main():
     index = 0
     for cam in cameras:
         init.set_from_serial_number(cam.serial_number)
-        name_list.append("{}".format(cam.serial_number))
+        name_list.append(f"{cam.serial_number}")
         print("Opening {}".format(name_list[index]))
         zed_list.append(sl.Camera())
         left_list.append(sl.Mat())
@@ -105,15 +105,16 @@ def main():
         if status != sl.ERROR_CODE.SUCCESS:
             print(repr(status))
             zed_list[index].close()
-        index = index + 1
 
-        resolution = cam.get_camera_information().camera_configuration.resolution
+        resolution = zed_list[index].get_camera_information().camera_configuration.resolution
         resolution_list.append(sl.Resolution(
             min(720, resolution.width), min(404, resolution.height)))
         
-        timestamps[cam.serial_number] = []
-        images[cam.serial_number] = []
-        depths[cam.serial_number] = []
+        timestamps[f"{cam.serial_number}"] = []
+        images[f"{cam.serial_number}"] = []
+        depths[f"{cam.serial_number}"] = []
+
+        index = index + 1
 
     # Start camera threads
     for index in range(0, len(zed_list)):
@@ -152,31 +153,43 @@ def main():
 
     hf = h5py.File(hdf5_path, "w")
     for i, cam in enumerate(cameras):
-        cam_info = cam.get_camera_information()
+        cam_info = zed_list[i].get_camera_information()
         calibration_params = cam_info.camera_configuration.calibration_parameters
 
         # LEFT CAMERA intrinsics
-        fx_left = calibration_params.left_cam.fx
-        fy_left = calibration_params.left_cam.fy
-        cx_left = calibration_params.left_cam.cx
-        cy_left = calibration_params.left_cam.cy
+        fx_left = calibration_params.left_cam.fx / cam_info.camera_configuration.resolution.width
+        fy_left = calibration_params.left_cam.fy / cam_info.camera_configuration.resolution.height
+        cx_left = calibration_params.left_cam.cx / cam_info.camera_configuration.resolution.width
+        cy_left = calibration_params.left_cam.cy / cam_info.camera_configuration.resolution.height
 
         # RIGHT CAMERA intrinsics
-        fx_right = calibration_params.right_cam.fx
-        fy_right = calibration_params.right_cam.fy
-        cx_right = calibration_params.right_cam.cx
-        cy_right = calibration_params.right_cam.cy
+        fx_right = calibration_params.right_cam.fx / cam_info.camera_configuration.resolution.width
+        fy_right = calibration_params.right_cam.fy / cam_info.camera_configuration.resolution.height
+        cx_right = calibration_params.right_cam.cx / cam_info.camera_configuration.resolution.width
+        cy_right = calibration_params.right_cam.cy / cam_info.camera_configuration.resolution.height
 
         tx = calibration_params.stereo_transform.get_translation().get()[0]
 
-        hf.create_dataset(f"inf{i}", data={"serial": cam.serial_number,
-                                           "fx_left": fx_left, "fy_left": fy_left, "cx_left": cx_left, "cy_left": cy_left, 
-                                           "fx_right": fx_right, "fy_right": fy_right, "cx_right": cx_right, "cy_right": cy_right, "tx": tx})
-        hf.create_dataset(f"tim{i}", data=timestamps[cam.serial_number])
+        serial_str = f"{cam.serial_number}"
+
+        hf.create_dataset(f"inf{i}/serial", data=serial_str)
+        hf.create_dataset(f"inf{i}/fx_left", data=fx_left)
+        hf.create_dataset(f"inf{i}/fy_left", data=fy_left)
+        hf.create_dataset(f"inf{i}/cx_left", data=cx_left)
+        hf.create_dataset(f"inf{i}/cy_left", data=cy_left)
+        hf.create_dataset(f"inf{i}/fx_right", data=fx_right)
+        hf.create_dataset(f"inf{i}/fy_right", data=fy_right)
+        hf.create_dataset(f"inf{i}/cx_right", data=cx_right)
+        hf.create_dataset(f"inf{i}/cy_right", data=cy_right)
+        hf.create_dataset(f"inf{i}/tx", data=tx)
+        # {"serial": serial_str,
+        #                                    "fx_left": fx_left, "fy_left": fy_left, "cx_left": cx_left, "cy_left": cy_left, 
+        #                                    "fx_right": fx_right, "fy_right": fy_right, "cx_right": cx_right, "cy_right": cy_right, "tx": tx})
+        hf.create_dataset(f"tim{i}", data=timestamps[serial_str])
         hf.create_dataset(
-            f"img{i}", data=images[cam.serial_number], dtype="uint8", compression='gzip', compress_opts=9)
+            f"img{i}", data=images[serial_str], dtype="uint8", compression='gzip', compression_opts=9)
         hf.create_dataset(
-            f"dep{i}", data=depths[cam.serial_number], compression='gzip', compress_opts=9)
+            f"dep{i}", data=depths[serial_str], compression='gzip', compression_opts=9)
     hf.close()
 
     cv2.destroyAllWindows()
