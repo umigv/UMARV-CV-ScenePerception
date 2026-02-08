@@ -10,7 +10,6 @@ import numpy.typing as npt
 import skimage
 import cv2
 
-
 def pool(depths, kernel: tuple[int, int]):
     h, w = depths.shape
     w -= w % kernel[1]
@@ -87,7 +86,7 @@ def ground_plane(
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]
 
-    res = mask(inv_depths, best_coeffs, tol)
+    res = mask(inv_depths, best_coeffs, tol)    
 
     return res, np.array(best_coeffs) / max_depth
 

@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 
 @dataclass
-class CameraIntrinsics:
+class Intrinsics:
     cx: float
     cy: float
     fx: float
     fy: float
 
 @dataclass
-class OccupancyGridConfiguration:
+class GridConfiguration:
     gw: float # grid width
     gh: float # grid height
     cw: float # cell width
