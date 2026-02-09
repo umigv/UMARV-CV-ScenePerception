@@ -169,13 +169,57 @@ def main():
             
             # Project onto 2d (x, z), add x offset
 
-            x_offset = np.ones(drive_rpc.shape[0]) * (displacement_cm / 10)
+            x_offset_drive = np.ones(drive_rpc.shape[0]) * (displacement_cm / 10)
+            x_offset_block = np.ones(block_rpc.shape[0]) * (displacement_cm / 10)
 
             drive_rpc_2d = np.delete(drive_rpc, (1), axis=1)
-            drive_rpc_2d[:, 0] = drive_rpc_2d[:, 0] + x_offset
+            drive_rpc_2d[:, 0] = drive_rpc_2d[:, 0] + x_offset_drive
 
             block_rpc_2d = np.delete(block_rpc, (1), axis=1)
-            block_rpc_2d[:, 0] = block_rpc_2d[:, 0] + x_offset
+            block_rpc_2d[:, 0] = block_rpc_2d[:, 0] + x_offset_block
+
+            # Mock right camera view: replace full_occ_right with real right camera occ grid
+            mock_displacement = 12
+            mock_angle = 37
+            transform = cv2.getRotationMatrix2D((full_occ.shape[1]//2, full_occ.shape[0]//2), mock_angle, 1)
+            transform[0, 2] -= mock_displacement
+            
+            full_occ_right = cv2.warpAffine(full_occ, transform, (full_occ.shape[1], full_occ.shape[0]), flags=cv2.INTER_LINEAR)
+            full_occ_left = full_occ
+            # # #
+
+
+            transform_left = cv2.getRotationMatrix2D((full_occ.shape[1]//2, full_occ.shape[0]//2), angle_deg/2, 1)
+            transform_left[0, 2] -= displacement_cm/2
+            transform_right = cv2.getRotationMatrix2D((full_occ.shape[1]//2, full_occ.shape[0]//2), -angle_deg/2, 1)
+            transform_right[0, 2] += displacement_cm/2
+
+            occ1 = cv2.warpAffine(full_occ_left, transform_left, (full_occ.shape[1], full_occ.shape[0]), flags=cv2.INTER_LINEAR)
+            occ2 = cv2.warpAffine(full_occ_right, transform_right, (full_occ.shape[1], full_occ.shape[0]), flags=cv2.INTER_LINEAR)
+            
+            merged_occ = np.maximum(occ1, occ2)
+            merged_occ = np.where((occ1 == 128) | (occ2 == 128), 
+                                np.maximum(occ1, occ2), 
+                                merged_occ)
+
+            ui.render(
+                occ1=occ1,
+                occ2=occ2,
+                pc1=drive_rpc_2d,
+                pc2=block_rpc_2d,
+                merged_occ=merged_occ,
+                merged_pc=drive_rpc_2d,
+                angle=angle_deg,
+                displacement=displacement_cm
+            )
+
+            key, angle_deg, displacement_cm = ui.handle_keyboard(angle_deg, displacement_cm)
+
+            if key in (27, ord('q')):
+                break
+            
+            # --- #
+
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
@@ -183,7 +227,7 @@ def main():
 
             occ_h, occ_w = full_occ.shape
             vcam = ransac.VirtualCamera(
-                occ_h - 1, occ_w // 2 + (displacement_cm/10), math.pi / 2, math.radians(110)) # add x-offset to vcam line of sight
+                occ_h - 1, occ_w // 2 + (displacement_cm/10), math.pi / 2, math.radians(110)) # added x-offset to vcam line of sight
             full_occ = ransac.occu.create_los_grid(full_occ, [vcam])
 
             full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
@@ -191,25 +235,6 @@ def main():
                 full_occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT
             )
             cv2.imshow("occupancy grid", full_occ)
-
-
-            ui.render(
-                occ1=full_occ,
-                occ2=occ2,
-                pc1=drive_rpc_2d,
-                pc2=block_rpc_2d,
-                merged_occ=merged_occ,
-                merged_pc=merged_pc,
-                angle=angle_deg,
-                displacement=displacement_cm
-            )
-
-            
-            key, angle_deg, displacement_cm = ui.handle_keyboard(angle_deg, displacement_cm)
-
-            if key in (27, ord('q')):
-                break
-
 
             x = w // 2
             y = h // 2

@@ -40,14 +40,14 @@ class CameraMergeUI:
         )
 
     def _colorize_grid(self, grid):
-        return cv2.applyColorMap(grid * 255, cv2.COLORMAP_TURBO)
+        return cv2.applyColorMap((grid).astype(np.uint8), cv2.COLORMAP_BONE)
 
-    def _draw_point_cloud(self, pc, color):
-        img = np.zeros((self.grid_size, self.grid_size, 3), dtype=np.uint8)
+    def _draw_point_cloud(self, pc):
+        img = np.zeros((self.grid_size, self.grid_size), dtype=np.uint8)
         for x, y in pc:
-            if 0 <= x < self.grid_size and 0 <= y < self.grid_size:
-                cv2.circle(img, (x, y), 1, color, -1)
-        return img
+            if -self.grid_size/2 < x < self.grid_size and 0 < y < self.grid_size:
+                img[int(x + self.grid_size/2), int(y)] = 255
+        return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     def _make_panel(self, title, img, title_color):
         panel = np.ones((self.panel_size, self.panel_size, 3), dtype=np.uint8) * 42
@@ -60,10 +60,13 @@ class CameraMergeUI:
             color=title_color
         )
 
-        h, w = img.shape[:2]
+        # Resize image to fit panel
+        img_resized = cv2.resize(img, (self.panel_size - 52, self.panel_size - 52))
+        
+        h, w = img_resized.shape[:2]
         y0 = (self.panel_size - h) // 2 + 26
         x0 = (self.panel_size - w) // 2
-        panel[y0:y0 + h, x0:x0 + w] = img
+        panel[y0:y0 + h, x0:x0 + w] = img_resized
         return panel
 
     def _draw_camera_top_view(self, width, angle, displacement):
@@ -168,9 +171,9 @@ class CameraMergeUI:
         ])
 
         pc_row = np.hstack([
-            self._make_panel("Camera 1 - Points", self._draw_point_cloud(pc1, (255, 0, 0)), (255, 120, 120)),
-            self._make_panel("Camera 2 - Points", self._draw_point_cloud(pc2, (0, 255, 0)), (120, 255, 120)),
-            self._make_panel("Merged - Points", self._draw_point_cloud(merged_pc, (255, 255, 0)), (220, 220, 220)),
+            self._make_panel("Camera 1 - Points", self._draw_point_cloud(pc1), (255, 120, 120)),
+            self._make_panel("Camera 2 - Points", self._draw_point_cloud(pc2), (120, 255, 120)),
+            self._make_panel("Merged - Points", self._draw_point_cloud(merged_pc), (220, 220, 220)),
         ])
 
         width = occ_row.shape[1]
@@ -210,26 +213,33 @@ class CameraMergeUI:
     
 
 def main():
-    GRID_SIZE = 160
+    GRID_SIZE = 5000
     NUM_POINTS = 350
 
     ui = CameraMergeUI(grid_size=GRID_SIZE)
 
     angle = 20
     displacement = 5
-    occ1 = np.random.randint(0, 2, (GRID_SIZE, GRID_SIZE), np.uint8)
-    occ2 = np.random.randint(0, 2, (GRID_SIZE, GRID_SIZE), np.uint8)
+    occ1 = np.random.randint(0, 2, (100, 100), np.uint8)
+    occ2 = np.random.randint(0, 2, (100, 100), np.uint8)
 
-    pc1 = np.random.randint(0, GRID_SIZE*2, (NUM_POINTS, 2))
-    pc2 = np.random.randint(0, GRID_SIZE*2, (NUM_POINTS, 2))
+    pc1 = np.column_stack([
+        np.random.rand(NUM_POINTS) * 5000 - 2500,
+        np.random.rand(NUM_POINTS) * 5000
+    ])
+    pc2 = np.column_stack([
+        np.random.rand(NUM_POINTS) * 5000 - 2500,
+        np.random.rand(NUM_POINTS) * 5000
+    ])
 
+    # x -> -2500, 2500 | y -> 0, 5000
 
     merged_occ = np.maximum(occ1, occ2)
     merged_pc = np.vstack([pc1, pc2])
+    print(f'Inputs shape: occ {occ1.shape} ({occ1.min()}, {occ1.max()}), pc {pc1.shape} ({pc1.min()}, {pc1.max()})')
 
     while True:
             
-
         ui.render(
             occ1=occ1,
             occ2=occ2,
