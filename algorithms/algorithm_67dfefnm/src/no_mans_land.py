@@ -41,8 +41,11 @@ class NoMansLand:
             if cv2.contourArea(cnt) > min_area:
                 return True, cnt
             
-    def scalar_projection(self, a, b):
-        pass
+    def magntitude_of_scalar_projection(self, of: tuple[float, float], onto: tuple[float, float]):
+        onto_mag = ((onto[0] ** 2) + (onto[1] ** 2)) ** 0.5
+        of_dot_onto = of[0] * onto[0] + of[1] * onto[1]
+
+        return of_dot_onto / onto_mag
 
     def grab_ramp_corners(self, best_cnt):
         # min_x = self.width - 1
@@ -66,14 +69,42 @@ class NoMansLand:
 
         # return (min_x, max_y), (max_x, max_y), (min_x, min_y), (max_x, min_y) #bottom left, bottom right, top left, top right
 
-        bl_ref = (1, -1)
+        diag_length = ((self.width ** 2) + (self.height ** 2)) ** 0.5
+
+        # reference vectors have (0, 0) at bottom_left, with x, y increasing rightwards, upwards respectively
+        bl_ref_vec = (1, -1)
         most_bl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
-        br_ref = (-1, -1)
-        tl_ref = (1, 1)
-        tr_ref = (-1, 1)
+        min_bl_dist = diag_length
+
+        br_ref_vec = (-1, -1)
+        most_br_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        min_br_dist = diag_length
+
+        tl_ref_vec = (1, 1)
+        most_tl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        min_tl_dist = diag_length
+
+        tr_ref_vec = (-1, 1)
+        most_tr_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        min_tr_dist = diag_length
 
         for point in best_cnt:
-            pass
+            x, y = point[0, 0], point[0, 1]
+
+            bl_diff_vec = (x, self.height - 1 - y)
+            bl_dist = self.magntitude_of_scalar_projection(bl_diff_vec, bl_ref_vec)
+            if bl_dist < min_bl_dist:
+                min_bl_dist = bl_dist
+                most_bl_point = (x, y)
+
+            br_diff_vec = (self.width - 1 - x, self.height - 1 - y)
+            br_dist = self.magntitude_of_scalar_projection(br_diff_vec, br_ref_vec)
+            if br_dist < min_bl_dist:
+                min_br_dist = bl_dist
+                most_br_point = (x, y)
+
+        return most_bl_point, most_br_point, most_tl_point, most_tr_point
+            
     
     def state_1(self): # can't see ramp
         self.centroid = (self.width // 2, 40)
