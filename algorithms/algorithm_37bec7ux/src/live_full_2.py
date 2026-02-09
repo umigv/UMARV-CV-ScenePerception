@@ -28,9 +28,7 @@ import ransac.plane
 import ransac.occu
 import numpy as np
 import math
-
 from calibrate_camera import CameraMergeUI
-
 
 cam = sl.Camera()
 
@@ -127,15 +125,6 @@ def main():
 
     ui = CameraMergeUI(grid_size=60)
     angle_deg, displacement_cm = 0, 0 # camera centered, facing forward.
-    occ1 = np.random.randint(0, 2, (60, 60), np.uint8)
-    occ2 = np.random.randint(0, 2, (60, 60), np.uint8)
-    pc1 = np.random.randint(0, 60, (60, 2))
-    pc2 = np.random.randint(0, 60, (60, 2))
-
-
-    merged_occ = np.maximum(occ1, occ2)
-    merged_pc = np.vstack([pc1, pc2])
-
 
     key = 0
     while key != 113:  # for 'q' key
@@ -161,13 +150,15 @@ def main():
 
             drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
             drive_rpc = ransac.occu.pixel_to_real(
-                drive_ppc, real_coeffs, intr, orientation=(angle_deg/360)*math.pi) # rotate by (angle_deg/2)
+                drive_ppc, real_coeffs, intr)
             block_ppc = ransac.occu.create_point_cloud(
                 ransac_output != 1, depths)
             block_rpc = ransac.occu.pixel_to_real(
-                block_ppc, real_coeffs, intr, orientation=(angle_deg/360)*math.pi) # rotate by (angle_deg/2)
-            
-            # Project onto 2d (x, z), add x offset
+                block_ppc, real_coeffs, intr)
+
+            drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
+            block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
+            full_occ = ransac.occu.composite(drive_occ, block_occ)
 
             x_offset_drive = np.ones(drive_rpc.shape[0]) * (displacement_cm / 10)
             x_offset_block = np.ones(block_rpc.shape[0]) * (displacement_cm / 10)
@@ -183,9 +174,10 @@ def main():
             mock_angle = 37
             transform = cv2.getRotationMatrix2D((full_occ.shape[1]//2, full_occ.shape[0]//2), mock_angle, 1)
             transform[0, 2] -= mock_displacement
-            
-            full_occ_right = cv2.warpAffine(full_occ, transform, (full_occ.shape[1], full_occ.shape[0]), flags=cv2.INTER_LINEAR)
-            full_occ_left = full_occ
+
+            full_occ_right = full_occ.copy()            
+            full_occ_right = cv2.warpAffine(full_occ_right, transform, (full_occ.shape[1], full_occ.shape[0]), flags=cv2.INTER_LINEAR)
+            full_occ_left = full_occ.copy()
             # # #
 
 
@@ -205,10 +197,7 @@ def main():
             ui.render(
                 occ1=occ1,
                 occ2=occ2,
-                pc1=drive_rpc_2d,
-                pc2=block_rpc_2d,
                 merged_occ=merged_occ,
-                merged_pc=drive_rpc_2d,
                 angle=angle_deg,
                 displacement=displacement_cm
             )
@@ -220,14 +209,9 @@ def main():
             
             # --- #
 
-
-            drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
-            block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-            full_occ = ransac.occu.composite(drive_occ, block_occ)
-
             occ_h, occ_w = full_occ.shape
             vcam = ransac.VirtualCamera(
-                occ_h - 1, occ_w // 2 + (displacement_cm/10), math.pi / 2, math.radians(110)) # added x-offset to vcam line of sight
+                occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
             full_occ = ransac.occu.create_los_grid(full_occ, [vcam])
 
             full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
@@ -261,3 +245,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+            

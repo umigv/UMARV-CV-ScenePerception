@@ -42,13 +42,6 @@ class CameraMergeUI:
     def _colorize_grid(self, grid):
         return cv2.applyColorMap((grid).astype(np.uint8), cv2.COLORMAP_BONE)
 
-    def _draw_point_cloud(self, pc):
-        img = np.zeros((self.grid_size, self.grid_size), dtype=np.uint8)
-        for x, y in pc:
-            if -self.grid_size/2 < x < self.grid_size and 0 < y < self.grid_size:
-                img[int(x + self.grid_size/2), int(y)] = 255
-        return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
     def _make_panel(self, title, img, title_color):
         panel = np.ones((self.panel_size, self.panel_size, 3), dtype=np.uint8) * 42
 
@@ -157,10 +150,7 @@ class CameraMergeUI:
         self,
         occ1,
         occ2,
-        pc1,
-        pc2,
         merged_occ,
-        merged_pc,
         angle,
         displacement,
     ):
@@ -168,12 +158,6 @@ class CameraMergeUI:
             self._make_panel("Camera 1 - Occ", self._colorize_grid(occ1), (255, 120, 120)),
             self._make_panel("Camera 2 - Occ", self._colorize_grid(occ2), (120, 255, 120)),
             self._make_panel("Merged - Occ", self._colorize_grid(merged_occ), (220, 220, 220)),
-        ])
-
-        pc_row = np.hstack([
-            self._make_panel("Camera 1 - Points", self._draw_point_cloud(pc1), (255, 120, 120)),
-            self._make_panel("Camera 2 - Points", self._draw_point_cloud(pc2), (120, 255, 120)),
-            self._make_panel("Merged - Points", self._draw_point_cloud(merged_pc), (220, 220, 220)),
         ])
 
         width = occ_row.shape[1]
@@ -185,7 +169,6 @@ class CameraMergeUI:
         dashboard = np.vstack([
             title_bar,
             occ_row,
-            pc_row,
             camera_view,
             controls
         ])
@@ -214,7 +197,6 @@ class CameraMergeUI:
 
 def main():
     GRID_SIZE = 5000
-    NUM_POINTS = 350
 
     ui = CameraMergeUI(grid_size=GRID_SIZE)
 
@@ -223,30 +205,15 @@ def main():
     occ1 = np.random.randint(0, 2, (100, 100), np.uint8)
     occ2 = np.random.randint(0, 2, (100, 100), np.uint8)
 
-    pc1 = np.column_stack([
-        np.random.rand(NUM_POINTS) * 5000 - 2500,
-        np.random.rand(NUM_POINTS) * 5000
-    ])
-    pc2 = np.column_stack([
-        np.random.rand(NUM_POINTS) * 5000 - 2500,
-        np.random.rand(NUM_POINTS) * 5000
-    ])
-
-    # x -> -2500, 2500 | y -> 0, 5000
-
     merged_occ = np.maximum(occ1, occ2)
-    merged_pc = np.vstack([pc1, pc2])
-    print(f'Inputs shape: occ {occ1.shape} ({occ1.min()}, {occ1.max()}), pc {pc1.shape} ({pc1.min()}, {pc1.max()})')
+    print(f'Inputs shape: occ {occ1.shape} ({occ1.min()}, {occ1.max()})')
 
     while True:
             
         ui.render(
             occ1=occ1,
             occ2=occ2,
-            pc1=pc1,
-            pc2=pc2,
             merged_occ=merged_occ,
-            merged_pc=merged_pc,
             angle=angle,
             displacement=displacement,
         )
