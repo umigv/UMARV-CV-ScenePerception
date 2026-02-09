@@ -9,9 +9,9 @@ class NoMansLand:
         self.image = None
 
         self.ramp_mask = None
-        self.ramp_mode = False
 
         self.final = None
+        self.centroid = (None, None)
 
     def update_mask(self):
         #defining the ranges for HSV values
@@ -33,27 +33,53 @@ class NoMansLand:
         combined = np.vstack((self.image, final_bgr))
         # cv2.imshow("mask", combined)
 
+    def is_ramp_visible(self):
+        cnts, _ = cv2.findContours(self.ramp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        min_area = 1000
+        for cnt in cnts:
+            if cv2.contourArea(cnt) > min_area:
+                return True, cnt
+            
+    def scalar_projection(self, a, b):
+        pass
+
     def grab_ramp_corners(self, best_cnt):
-        min_x = self.width - 1
-        max_x = 0
-        min_y = self.height - 1
-        max_y = 0
+        # min_x = self.width - 1
+        # max_x = 0
+        # min_y = self.height - 1
+        # max_y = 0
+
+        # for point in best_cnt:
+        #     if point[0, 0] > max_x:
+        #         max_x = point[0, 0]
+        #     if point[0, 0] < min_x:
+        #         min_x = point[0, 0]
+
+        #     if point[0, 1] > max_y:
+        #         max_y = point[0, 1]
+        #     if point[0, 1] < min_y:
+        #         min_y = point[0, 1]
+
+        # # cv2.circle(self.final, (min_x, max_y), 5, 128, -1)
+        # # cv2.circle(self.final, (max_x, max_y), 5, 128, -1)
+
+        # return (min_x, max_y), (max_x, max_y), (min_x, min_y), (max_x, min_y) #bottom left, bottom right, top left, top right
+
+        bl_ref = (1, -1)
+        most_bl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        br_ref = (-1, -1)
+        tl_ref = (1, 1)
+        tr_ref = (-1, 1)
 
         for point in best_cnt:
-            if point[0, 0] > max_x:
-                max_x = point[0, 0]
-            if point[0, 0] < min_x:
-                min_x = point[0, 0]
+            pass
+    
+    def state_1(self): # can't see ramp
+        self.centroid = (self.width // 2, 40)
 
-            if point[0, 1] > max_y:
-                max_y = point[0, 1]
-            if point[0, 1] < min_y:
-                min_y = point[0, 1]
-
-        # cv2.circle(self.final, (min_x, max_y), 5, 128, -1)
-        # cv2.circle(self.final, (max_x, max_y), 5, 128, -1)
-
-        return (min_x, max_y), (max_x, max_y), (min_x, min_y), (max_x, min_y) #bottom left, bottom right, top left, top right
+    def state_2(self, ramp_cnt): # on ramp
+        bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(ramp_cnt)
         
     def run(self):
         cap = cv2.VideoCapture('data/ramp.MOV') # 0 for webcam # 1,2 for external cameras
@@ -67,33 +93,36 @@ class NoMansLand:
 
             if ret:
                 self.update_mask()
-                cnts, _ = cv2.findContours(self.ramp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # cnts, _ = cv2.findContours(self.ramp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                self.ramp_mode = False
+                # self.ramp_mode = False
 
-                bottom_left = (None, None)
-                bottom_right = (None, None)
-                top_left = (None, None)
-                top_right = (None, None)
+                # bottom_left = (None, None)
+                # bottom_right = (None, None)
+                # top_left = (None, None)
+                # top_right = (None, None)
 
-                min_area = 1000
-                for cnt in cnts:
-                    if cv2.contourArea(cnt) > min_area:
-                        self.ramp_mode = True
-                        bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(cnt)
+                # min_area = 1000
+                # for cnt in cnts:
+                #     if cv2.contourArea(cnt) > min_area:
+                #         self.ramp_mode = True
+                #         bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(cnt)
                         
-                        cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
-                        cv2.line(self.final, bottom_right, (self.width, self.height), 255, 10)
+                #         cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
+                #         cv2.line(self.final, bottom_right, (self.width, self.height), 255, 10)
 
-                        mid_bottom = ((bottom_left[0] + bottom_right[0]) // 2, (bottom_left[1] + bottom_right[1]) // 2)
-                        mid_top = ((top_left[0] + top_right[0])// 2, (top_left[1] + top_right[1]) // 2)
-                        cv2.circle(self.final, mid_bottom, 5, 128, -1) #radius, color, ?
-                        cv2.circle(self.final, mid_top, 5, 128, -1)
+                #         mid_bottom = ((bottom_left[0] + bottom_right[0]) // 2, (bottom_left[1] + bottom_right[1]) // 2)
+                #         mid_top = ((top_left[0] + top_right[0])// 2, (top_left[1] + top_right[1]) // 2)
+                #         cv2.circle(self.final, mid_bottom, 5, 128, -1) #radius, color, ?
+                #         cv2.circle(self.final, mid_top, 5, 128, -1)
 
-                if self.ramp_mode:
+                ramp_visible, best_cnt = self.is_ramp_visible()
+
+                if ramp_visible:
                     print("ramp mode")
+                    self.state2()
                 else:
-                    print("not ramp mode")
+                    self.state_1()
 
                 cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
                 cv2.imshow("Video", self.image)
