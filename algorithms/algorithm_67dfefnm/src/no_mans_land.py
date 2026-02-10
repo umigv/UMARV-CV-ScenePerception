@@ -25,7 +25,7 @@ class NoMansLand:
     def is_ramp_visible(self):
         cnts, _ = cv2.findContours(self.ramp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        min_area = 1000
+        min_area = 1500
         max_found = 0
 
         best_cnt = None
@@ -150,8 +150,11 @@ class NoMansLand:
         # self.hsv_obj.tune("ramp_color")
                     
         while cap.isOpened():
-            ret, self.image = cap.read()
-            self.height, self.width, _ = self.image.shape
+            try: 
+                ret, self.image = cap.read()
+                self.height, self.width, _ = self.image.shape
+            except AttributeError:
+                print("Program finished running")
 
             if ret:
                 self.update_mask()
