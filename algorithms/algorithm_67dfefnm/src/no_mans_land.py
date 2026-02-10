@@ -42,62 +42,62 @@ class NoMansLand:
         else:  
             return False
             
-    def magntitude_of_scalar_projection(self, of: tuple[float, float], onto: tuple[float, float]):
+    def magnitude_of_scalar_projection(self, of: tuple[float, float], onto: tuple[float, float]):
         onto_mag = ((onto[0] ** 2) + (onto[1] ** 2)) ** 0.5
         of_dot_onto = (of[0] * onto[0]) + (of[1] * onto[1])
 
         return abs(of_dot_onto / onto_mag)
 
-    def grab_ramp_corners(self, best_cnt):
+    def grab_ramp_corners(self):
         diag_length = ((self.width ** 2) + (self.height ** 2)) ** 0.5
 
         # bottom left
         bl_ref_vec = (1.0, -1.0)
-        most_bl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        most_bl_point = (self.ramp_cnt[0, 0, 0], self.ramp_cnt[0, 0, 1])
         min_bl_dist = diag_length
 
         # bottom right
         br_ref_vec = (-1.0, -1.0)
-        most_br_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        most_br_point = (self.ramp_cnt[0, 0, 0], self.ramp_cnt[0, 0, 1])
         min_br_dist = diag_length
 
         # top left
         tl_ref_vec = (1.0, 2.0)
-        most_tl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        most_tl_point = (self.ramp_cnt[0, 0, 0], self.ramp_cnt[0, 0, 1])
         min_tl_dist = diag_length
 
         # top right
         tr_ref_vec = (-1.0, 2.0)
-        most_tr_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
+        most_tr_point = (self.ramp_cnt[0, 0, 0], self.ramp_cnt[0, 0, 1])
         min_tr_dist = diag_length
 
-        for point in best_cnt:
+        for point in self.ramp_cnt:
             x, y = float(point[0, 0]), float(point[0, 1])
 
             # bottom left
             bl_diff_vec = (x, -1 * (self.height - 1 - y))
-            bl_dist = self.magntitude_of_scalar_projection(bl_diff_vec, bl_ref_vec)
+            bl_dist = self.magnitude_of_scalar_projection(bl_diff_vec, bl_ref_vec)
             if bl_dist < min_bl_dist:
                 min_bl_dist = bl_dist
                 most_bl_point = (int(x), int(y))
 
             # bottom right
             br_diff_vec = (-1 * (self.width - 1 - x), -1 * (self.height - 1 - y))
-            br_dist = self.magntitude_of_scalar_projection(br_diff_vec, br_ref_vec)
+            br_dist = self.magnitude_of_scalar_projection(br_diff_vec, br_ref_vec)
             if br_dist < min_br_dist:
                 min_br_dist = br_dist
-                most_br_point = (int(x), int(y))
+                most_br_point =(int(x), int(y))
 
             # top left
             tl_diff_vec = (x, y)
-            tl_dist = self.magntitude_of_scalar_projection(tl_diff_vec, tl_ref_vec)
+            tl_dist = self.magnitude_of_scalar_projection(tl_diff_vec, tl_ref_vec)
             if tl_dist < min_tl_dist:
                 min_tl_dist = tl_dist
                 most_tl_point = (int(x), int(y))
 
             # top right
             tr_diff_vec = (-1 * (self.width - 1 - x), y)
-            tr_dist = self.magntitude_of_scalar_projection(tr_diff_vec, tr_ref_vec)
+            tr_dist = self.magnitude_of_scalar_projection(tr_diff_vec, tr_ref_vec)
             if tr_dist < min_tr_dist:
                 min_tr_dist = tr_dist
                 most_tr_point = (int(x), int(y))
@@ -109,19 +109,17 @@ class NoMansLand:
         self.centroid = (self.width // 2, 40)
 
     def state_2(self): # seeing ramp
-        bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(self.ramp_cnt)
+        bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners()
 
         mid_bottom = ((bottom_left[0] + bottom_right[0]) // 2, (bottom_left[1] + bottom_right[1]) // 2)
         mid_top = ((top_left[0] + top_right[0]) // 2, (top_left[1] + top_right[1]) // 2)
-        cv2.circle(self.final, mid_bottom, 10, 128, -1)
-        cv2.circle(self.final, mid_top, 10, 128, -1)
 
         if self.ramp_mask[self.height - 15, self.width // 2] != 0: # we are probably on the ramp now
             self.centroid = (mid_top[0], mid_top[1] - 50)
             cv2.line(self.final, top_left, (0, 0), 255, 10)
             cv2.line(self.final, top_right, (self.width, 0), 255, 10)
         else:
-            self.centroid = (mid_bottom[0], mid_bottom[1] + 50)
+            self.centroid = (mid_bottom[0], min(self.height - 1, mid_bottom[1] + 50))
             cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
             cv2.line(self.final, bottom_right, (self.width, self.height), 255, 10)
 
@@ -130,6 +128,9 @@ class NoMansLand:
             cv2.circle(self.final, bottom_right, 7, 128, -1)
             cv2.circle(self.final, top_left, 7, 128, -1)
             cv2.circle(self.final, top_right, 7, 128, -1)
+
+            cv2.circle(self.final, mid_bottom, 10, 128, -1)
+            cv2.circle(self.final, mid_top, 10, 128, -1)
 
     def state_machine(self):
         ramp_visible = False
