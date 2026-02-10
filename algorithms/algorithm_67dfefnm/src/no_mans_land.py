@@ -4,14 +4,17 @@ import numpy as np
 from hsv import hsv
 
 class NoMansLand:
-    def __init__(self):
+    def __init__(self, debug = False):
         self.hsv_obj = None
         self.image = None
 
         self.ramp_mask = None
+        self.ramp_cnt = None
 
         self.final = None
         self.centroid = (None, None)
+
+        self.debug = debug
 
     def update_mask(self):
         #defining the ranges for HSV values
@@ -23,11 +26,21 @@ class NoMansLand:
         cnts, _ = cv2.findContours(self.ramp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         min_area = 1000
+        max_found = 0
+
+        best_cnt = None
+
         for cnt in cnts:
-            if cv2.contourArea(cnt) > min_area:
-                return True, cnt
-            
-        return False, []
+            area = cv2.contourArea(cnt)
+            if (area > min_area) and (area > max_found):
+                max_found = area
+                best_cnt = cnt
+        
+        if best_cnt is not None:
+            self.ramp_cnt = best_cnt
+            return True
+        else:  
+            return False
             
     def magntitude_of_scalar_projection(self, of: tuple[float, float], onto: tuple[float, float]):
         onto_mag = ((onto[0] ** 2) + (onto[1] ** 2)) ** 0.5
@@ -38,18 +51,22 @@ class NoMansLand:
     def grab_ramp_corners(self, best_cnt):
         diag_length = ((self.width ** 2) + (self.height ** 2)) ** 0.5
 
+        # bottom left
         bl_ref_vec = (1.0, -1.0)
         most_bl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
         min_bl_dist = diag_length
 
+        # bottom right
         br_ref_vec = (-1.0, -1.0)
         most_br_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
         min_br_dist = diag_length
 
+        # top left
         tl_ref_vec = (1.0, 2.0)
         most_tl_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
         min_tl_dist = diag_length
 
+        # top right
         tr_ref_vec = (-1.0, 2.0)
         most_tr_point = (best_cnt[0, 0, 0], best_cnt[0, 0, 1])
         min_tr_dist = diag_length
@@ -57,24 +74,28 @@ class NoMansLand:
         for point in best_cnt:
             x, y = float(point[0, 0]), float(point[0, 1])
 
+            # bottom left
             bl_diff_vec = (x, -1 * (self.height - 1 - y))
             bl_dist = self.magntitude_of_scalar_projection(bl_diff_vec, bl_ref_vec)
             if bl_dist < min_bl_dist:
                 min_bl_dist = bl_dist
                 most_bl_point = (int(x), int(y))
 
+            # bottom right
             br_diff_vec = (-1 * (self.width - 1 - x), -1 * (self.height - 1 - y))
             br_dist = self.magntitude_of_scalar_projection(br_diff_vec, br_ref_vec)
             if br_dist < min_br_dist:
                 min_br_dist = br_dist
                 most_br_point = (int(x), int(y))
 
+            # top left
             tl_diff_vec = (x, y)
             tl_dist = self.magntitude_of_scalar_projection(tl_diff_vec, tl_ref_vec)
             if tl_dist < min_tl_dist:
                 min_tl_dist = tl_dist
                 most_tl_point = (int(x), int(y))
 
+            # top right
             tr_diff_vec = (-1 * (self.width - 1 - x), y)
             tr_dist = self.magntitude_of_scalar_projection(tr_diff_vec, tr_ref_vec)
             if tr_dist < min_tr_dist:
@@ -87,24 +108,42 @@ class NoMansLand:
     def state_1(self): # can't see ramp
         self.centroid = (self.width // 2, 40)
 
-    def state_2(self, ramp_cnt): # seeing ramp
-        bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(ramp_cnt)
-
-        cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
-        cv2.line(self.final, bottom_right, (self.width, self.height), 255, 10)
+    def state_2(self): # seeing ramp
+        bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(self.ramp_cnt)
 
         mid_bottom = ((bottom_left[0] + bottom_right[0]) // 2, (bottom_left[1] + bottom_right[1]) // 2)
         mid_top = ((top_left[0] + top_right[0]) // 2, (top_left[1] + top_right[1]) // 2)
         cv2.circle(self.final, mid_bottom, 10, 128, -1)
         cv2.circle(self.final, mid_top, 10, 128, -1)
 
-        cv2.circle(self.final, bottom_left, 10, 128, -1)
-        cv2.circle(self.final, bottom_right, 10, 128, -1)
-        cv2.circle(self.final, top_left, 10, 128, -1)
-        cv2.circle(self.final, top_right, 10, 128, -1)
-        
+        if self.ramp_mask[self.height - 15, self.width // 2] != 0: # we are probably on the ramp now
+            self.centroid = (mid_top[0], mid_top[1] - 50)
+            cv2.line(self.final, top_left, (0, 0), 255, 10)
+            cv2.line(self.final, top_right, (self.width, 0), 255, 10)
+        else:
+            self.centroid = (mid_bottom[0], mid_bottom[1] + 50)
+            cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
+            cv2.line(self.final, bottom_right, (self.width, self.height), 255, 10)
+
+        if self.debug:
+            cv2.circle(self.final, bottom_left, 7, 128, -1)
+            cv2.circle(self.final, bottom_right, 7, 128, -1)
+            cv2.circle(self.final, top_left, 7, 128, -1)
+            cv2.circle(self.final, top_right, 7, 128, -1)
+
+    def state_machine(self):
+        ramp_visible = False
+        ramp_visible = self.is_ramp_visible()
+
+        if ramp_visible:
+            if self.debug:
+                print("ramp mode")
+            self.state_2()
+        else:
+            self.state_1()
+
     def run(self):
-        cap = cv2.VideoCapture('data/ramp.MOV') # 0 for webcam # 1,2 for external cameras
+        cap = cv2.VideoCapture('data/ramp.MOV') # 0 for webcam, 1,2 for external cameras
         self.hsv_obj = hsv("data/ramp.MOV")
 
         # self.hsv_obj.tune("ramp_color")
@@ -115,15 +154,9 @@ class NoMansLand:
 
             if ret:
                 self.update_mask()
+                self.state_machine()
 
-                ramp_visible = False
-                ramp_visible, best_cnt = self.is_ramp_visible()
-
-                if ramp_visible:
-                    print("ramp mode")
-                    self.state_2(best_cnt)
-                else:
-                    self.state_1()
+                cv2.circle(self.final, self.centroid, 5, 255, -1)
 
                 cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
                 cv2.imshow("Video", self.image)
@@ -138,7 +171,7 @@ class NoMansLand:
         cap.release()
         cv2.destroyAllWindows()
             
-    def run_frame(self, hsv_indentifier, frame):
+    def run_frame(self, frame, hsv_indentifier):
         if self.hsv_obj is None:
             self.hsv_obj = hsv(hsv_indentifier)
             
@@ -146,16 +179,18 @@ class NoMansLand:
         self.height, self.width, _ = self.image.shape
         
         self.update_mask()
-    
-    def detect_ramp(color_range):
-        pass
+        self.state_machine()
 
+        cv2.circle(self.final, self.centroid, 5, 255, -1)
 
+        cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
+        cv2.imshow("Video", self.image)
+        cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
+        cv2.imshow("mask", self.final)
 
 def main():
-    obj = NoMansLand()
+    obj = NoMansLand(debug = False)
     obj.run()
-    # obj.detect_ramp(123) #fill with color range (green)
 
 if __name__ == "__main__":
     main()
