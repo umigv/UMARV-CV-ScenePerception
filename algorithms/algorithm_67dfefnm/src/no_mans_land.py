@@ -18,20 +18,6 @@ class NoMansLand:
         self.final, dict = self.hsv_obj.get_mask(self.image)
         
         self.ramp_mask = dict["ramp_color"]
-        
-        # self.past_stop_line()
-        
-        # if(self.done == False):
-        # self.last_diff_y = self.find_left_most_lane()
-        # else:
-        #     self.draw_trapazoid()
-        #     self.centroid = (self.width//2, 40)
-        # self.find_center_of_lane()
-        # cv2.namedWindow("mask", self.final)
-        # cv2.imshow("mask", self.final)
-        final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
-        combined = np.vstack((self.image, final_bgr))
-        # cv2.imshow("mask", combined)
 
     def is_ramp_visible(self):
         cnts, _ = cv2.findContours(self.ramp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -45,7 +31,7 @@ class NoMansLand:
             
     def magntitude_of_scalar_projection(self, of: tuple[float, float], onto: tuple[float, float]):
         onto_mag = ((onto[0] ** 2) + (onto[1] ** 2)) ** 0.5
-        of_dot_onto = of[0] * onto[0] + of[1] * onto[1]
+        of_dot_onto = (of[0] * onto[0]) + (of[1] * onto[1])
 
         return abs(of_dot_onto / onto_mag)
 
@@ -101,7 +87,7 @@ class NoMansLand:
     def state_1(self): # can't see ramp
         self.centroid = (self.width // 2, 40)
 
-    def state_2(self, ramp_cnt): # on ramp
+    def state_2(self, ramp_cnt): # seeing ramp
         bottom_left, bottom_right, top_left, top_right = self.grab_ramp_corners(ramp_cnt)
 
         cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
@@ -116,12 +102,6 @@ class NoMansLand:
         cv2.circle(self.final, bottom_right, 10, 128, -1)
         cv2.circle(self.final, top_left, 10, 128, -1)
         cv2.circle(self.final, top_right, 10, 128, -1)
-
-        print(bottom_left)
-        print(bottom_right)
-        print(top_left)
-        print(top_right)
-        print()
         
     def run(self):
         cap = cv2.VideoCapture('data/ramp.MOV') # 0 for webcam # 1,2 for external cameras
