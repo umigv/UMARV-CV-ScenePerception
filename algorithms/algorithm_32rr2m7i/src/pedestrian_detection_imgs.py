@@ -10,6 +10,7 @@ model = YOLO('./data/yolov8n.pt')
 
 # init directories
 image_dir = 'pedestrian_images'
+
 for idx, filename in enumerate(os.listdir(image_dir)):
     image_path = os.path.join(image_dir, filename)
     img = cv2.imread(image_path)
@@ -79,7 +80,7 @@ for idx, filename in enumerate(os.listdir(image_dir)):
     cv2.imwrite('detection_output.jpg', img)
 
     cv2.waitKey(0) # Keeps the window open until you press a key
-    cv2.destroyAllWindows()
+    cv2.destroyAllWindows() 
 
 
     
