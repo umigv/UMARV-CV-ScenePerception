@@ -1,5 +1,8 @@
 .DS_Store
 env
+.env
+venv
+.venv
 *.MOV
 *.mp4
 *.pt
