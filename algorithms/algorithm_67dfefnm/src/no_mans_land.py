@@ -144,8 +144,10 @@ class NoMansLand:
             self.state_1()
 
     def run(self):
-        cap = cv2.VideoCapture('data/ramp.MOV') # 0 for webcam, 1,2 for external cameras
-        self.hsv_obj = hsv("data/ramp.MOV")
+        vid = "ramp.MOV"
+        path = "data/" + vid
+        cap = cv2.VideoCapture(path) # 0 for webcam, 1,2 for external cameras
+        self.hsv_obj = hsv(path)
 
         # self.hsv_obj.tune("ramp_color")
                     
@@ -193,7 +195,7 @@ class NoMansLand:
         cv2.imshow("mask", self.final)
 
 def main():
-    obj = NoMansLand(debug = False)
+    obj = NoMansLand(debug = True)
     obj.run()
 
 if __name__ == "__main__":

@@ -8,5 +8,15 @@
             "v_upper": 255,
             "v_lower": 77
         }
+    },
+    "data/ramp1.MOV": {
+        "ramp_color": {
+            "h_upper": 103,
+            "h_lower": 42,
+            "s_upper": 98,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 207
+        }
     }
 }

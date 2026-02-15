@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 class hsv:
     def __init__(self):
-        self.video_path = 'data/trimmed_ramp.mp4'
+        self.video_path = 'data/ramp.MOV'
         self.image = None
         self.rgb_image = None
         self.mask = None
