@@ -13,6 +13,9 @@ import cv2
 import numpy as np
 import math
 
+import pyzed.sl as sl
+import ransac.plane
+import ransac.occu
 
 class CameraMergeUI:
     def __init__(self, grid_size=160, panel_size=240):
@@ -195,24 +198,10 @@ class CameraMergeUI:
         return key, angle, displacement
     
 
-import sys
-import pyzed.sl as sl
-from signal import signal, SIGINT
-import argparse
-import os
-import cv2
-import ransac.plane
-import ransac.occu
-import numpy as np
-import math
-from calibrate_camera import CameraMergeUI
 
 cam = sl.Camera()
 
 def main():
-    # --------------------------
-    # INIT TWO CAMERAS
-    # --------------------------
     cams = []
     init = sl.InitParameters()
     init.depth_mode = sl.DEPTH_MODE.NEURAL
@@ -234,9 +223,6 @@ def main():
 
     runtime = sl.RuntimeParameters()
 
-    # --------------------------
-    # CAMERA INFO + INTRINSICS
-    # --------------------------
     cam_info = cams[0].get_camera_information()
     resolution = cam_info.camera_configuration.resolution
     w = min(720, resolution.width)
@@ -262,9 +248,6 @@ def main():
 
     key = 0
 
-    # ==========================
-    # MAIN LOOP
-    # ==========================
     while key != 113:
 
         occ_grids = []
@@ -282,7 +265,6 @@ def main():
             image = image_mats[i].get_data()
             depths = ransac.plane.clean_depths(depth_mats[i].get_data())
 
-            # ---- GROUND RANSAC ----
             ransac_output, px_coeffs = ransac.plane.ground_plane(
                 depths, 60, (1, 16), 0.15
             )
@@ -312,9 +294,6 @@ def main():
         full_occ_left = occ_grids[0]
         full_occ_right = occ_grids[1]
 
-        # --------------------------
-        # APPLY USER TRANSFORM
-        # --------------------------
         h_occ, w_occ = full_occ_left.shape
 
         transform_left = cv2.getRotationMatrix2D(
@@ -322,14 +301,14 @@ def main():
             angle_deg / 2,
             1
         )
-        transform_left[0, 2] -= displacement_cm / 2
+        transform_left[0, 2] -= displacement_cm / 3.3 / 2
 
         transform_right = cv2.getRotationMatrix2D(
             (w_occ // 2, h_occ // 2),
             -angle_deg / 2,
             1
         )
-        transform_right[0, 2] += displacement_cm / 2
+        transform_right[0, 2] += displacement_cm / 3.3 / 2
 
         occ1 = cv2.warpAffine(
             full_occ_left,
@@ -352,9 +331,6 @@ def main():
             merged_occ
         )
 
-        # --------------------------
-        # RENDER UI
-        # --------------------------
         ui.render(
             occ1=occ1,
             occ2=occ2,
