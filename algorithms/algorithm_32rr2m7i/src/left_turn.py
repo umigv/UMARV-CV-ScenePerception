@@ -1,3 +1,4 @@
+import math
 import cv2
 import numpy as np
 from hsv import hsv
@@ -65,23 +66,31 @@ class leftTurn:
 
     def update_mask(self):
         #defining the ranges for HSV values
-        self.final, dict = self.hsv_obj.get_mask(self.image, yolo_barrels=True)
-        
+        self.final, dict = self.hsv_obj.get_mask(self.image) # , yolo_barrels=True, yolo_lanes=True
+
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
         
-        self.past_stop_line()
+        # self.past_stop_line()
         self.last_diff_y = self.state_machine()
         self.find_center_of_lane()
         
         cv2.circle(self.final, self.centroid, 10, 255, -1)
         cv2.imshow("mask", self.final)
-        final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
-        combined = np.vstack((self.image, final_bgr))
-        cv2.imshow("mask", combined)
+        # final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
+        # combined = np.vstack((self.image, final_bgr))
+        # cv2.imshow("mask", combined)
         
     def in_bounds(self, x, y):
-        return 0 <= x < self.width and 0 <= y < self.height 
+        return 0 <= x < self.width and 0 <= y < self.height
+    
+    def is_local_0s(self, mask, x, y):
+        return (
+        mask[y,   x]   == 0 and
+        mask[y,   x+1] == 0 and
+        mask[y+1, x]   == 0 and
+        mask[y+1, x+1] == 0
+    )
         
     
     def find_center_of_lane(self):
@@ -117,8 +126,9 @@ class leftTurn:
         
         return waypoints
     
-    
+    # Initial straightaway before crossing stop line
     def state_1(self):
+        # print("state_1")
         # Induce forward trajetory
         # This is a will be for the initial straightaway before we cross the stopping line
         status = self.past_stop_line()
@@ -133,7 +143,10 @@ class leftTurn:
             # set waypoint to directly in front of the robot
         
     
+
+    # Already passed the yellow line. Do constant left-turn tendency until we see yellow dashed
     def state_2(self):
+        # print("state_2")
         # induce a constant left turn with waypoint in top corner
         # This is for the point where we have crossed the 
         # stopping line but have yet to see the yellow
@@ -146,9 +159,10 @@ class leftTurn:
         self.centroid = (self.width // 8, 40)
         
         
-        
+     # If we see yellow dashed, align with turn lane (and check for cone)    
     def state_3(self, best_cnt):
-        # Draw lane lines to align outselved with the turn lane
+        # print("state_3")
+        # Draw lane lines to align ourselves with the turn lane
         # Anytime we see yellow dashed we should invoke this state
         
         # MAKE SURE TO CHECK FOR CONE IN FRONT
@@ -204,26 +218,85 @@ class leftTurn:
                 x, y = edge_white_x, edge_white_y
                 self.diff_x //= 10
                 self.diff_y //= 10
-                
+
+                # g = math.gcd(abs(self.diff_x), abs(self.diff_y))
+                # print("gcd:", g)
+                # if g != 0:
+                #     self.diff_x //= g
+                #     self.diff_y //= g
                 
                 x -= self.diff_x * 5
                 y -= self.diff_y * 5
                 
                 point_list = []
                 
-                print("diff_x, diff_y:", self.diff_x, self.diff_y)
+                # print("diff_x, diff_y:", self.diff_x, self.diff_y)
+                # Exit condition in testing
                 if self.testing and self.diff_x >= 0:
                     self.in_state_4 = True
                     self.centroid = (self.width//2, 40)
                     return
-                
+
                 self.diff_x -= 20 #Applying this so that the slope is a little more accurate
-                
-                while self.in_bounds(x,y) and x < self.width - self.diff_x and y < self.height - self.diff_y and self.white_mask[y, x] == 0:
+
+                # Use Bresenham's line algorithm to move along the slope until we hit a non-white pixel
+                # Then use Bresenham's line algorithm again to move along the slope until we hit a white pixel, which should be the lane line
+
+                # Bresenham's line algorithm implementation
+                # x, y = edge_white_x, edge_white_y
+
+                # dx = abs(self.diff_x)
+                # dy = abs(self.diff_y)
+                # sx = 1 if self.diff_x > 0 else -1
+                # sy = 1 if self.diff_y > 0 else -1
+                # err = dx - dy
+
+                # max_steps = max(self.width, self.height)
+                # steps = 0
+
+                # # ---------- Phase 1: start in white, march until first NON-white ----------
+                # while self.in_bounds(x, y) and steps < max_steps:
+                #     if self.white_mask[y, x] != 255:
+                #         break
+
+                #     e2 = 2 * err
+                #     if e2 > -dy:
+                #         err -= dy
+                #         x += sx
+                #     if e2 < dx:
+                #         err += dx
+                #         y += sy
+
+                #     steps += 1
+
+                # cv2.circle(self.final, (x, y), 10, 255, -1)
+
+                # # ---------- Phase 2: continue marching until white is hit again ----------
+                # while self.in_bounds(x, y) and steps < max_steps:
+                #     if self.white_mask[y, x] == 255:
+                #         break
+
+                #     e2 = 2 * err
+                #     if e2 > -dy:
+                #         err -= dy
+                #         x += sx
+                #     if e2 < dx:
+                #         err += dx
+                #         y += sy
+
+                #     steps += 1
+
+                # cv2.circle(self.final, (x, y), 10, 255, -1)
+
+
+                while self.in_bounds(x,y) and x < self.width - self.diff_x and y < self.height - self.diff_y and self.is_local_0s(self.white_mask, x, y):
                     x -= self.diff_x #* 2, run
                     y -= self.diff_y #* 2, rise
                     point_list.append((x,y))
                     cv2.circle(self.final, (x, y), 5, 255, -1)
+                    # reduce the diff_x and diff_y each iteration so x and y move less and less
+                    # self.diff_x = max(int(self.diff_x * 0.9), min_diff_x)
+                    # self.diff_y = max(int(self.diff_y * 0.9), min_diff_y)
                     
                 if len(point_list) == 0:
                     self.centroid = (self.width//2, 40)
@@ -266,8 +339,8 @@ class leftTurn:
             self.state_3(best_cnt)
             
     def run(self):
-        cap = cv2.VideoCapture('data/left_turn_trimmed.mp4') #Specify an integer for webcam or other camera
-        self.hsv_obj = hsv('data/IMG_5123.MOV')
+        cap = cv2.VideoCapture('data/left_turn.mp4') #Specify an integer for webcam or other camera
+        self.hsv_obj = hsv('data/left_turn.mp4') # , barrel_model_path='data/obstacles.pt', lane_model_path='data/lane_lines.pt'
         
         while cap.isOpened():
             ret, self.image = cap.read()

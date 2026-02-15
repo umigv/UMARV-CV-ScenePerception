@@ -5,7 +5,7 @@ import json
 from ultralytics import YOLO
 
 class hsv:
-    def __init__(self, video_path):
+    def __init__(self, video_path, barrel_model_path=None, lane_model_path=None):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
         self.setup = False
@@ -15,8 +15,14 @@ class hsv:
         self.video_path = video_path
         self.barrel_mask = None
         self.barrel_boxes = None
-        self.barrel_model =  YOLO("data/obstacles.pt")
-        self.lane_model = YOLO("data/laneswithcontrast.pt")
+        if barrel_model_path is None:
+            self.barrel_model = None
+        else:
+            self.barrel_model = YOLO(barrel_model_path) # "data/obstacles.pt"
+        if lane_model_path is None:
+            self.lane_model = None
+        else:
+            self.lane_model = YOLO(lane_model_path) # "data/lane_lines.pt"
         self.load_hsv_values()
         
         
@@ -24,7 +30,12 @@ class hsv:
         if os.path.exists('hsv_values.json'):
             with open('hsv_values.json', 'r') as file:
                 all_hsv_values = json.load(file)
-                self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
+                self.hsv_filters = all_hsv_values.get(str(self.video_path), {"white": {
+                'h_upper': 29, 'h_lower': 0,
+                's_upper': 51, 's_lower': 0,
+                'v_upper': 255, 'v_lower': 137
+            }})
+                # self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
         else:
             # print("Matt put it in the wrong spot")
             # Initialize with an empty filter map if the JSON file doesn't exist
@@ -173,10 +184,11 @@ class hsv:
                 # If the video ends, reset to the beginning
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
-            self.image = frame
-            self.adjust_gamma()
-            self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
-            mask, dict = self.update_mask()
+            mask, dict = self.get_mask(frame) # yolo_lanes=True, yolo_barrels=True
+            # self.image = frame
+            # self.adjust_gamma()
+            # self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+            # mask, dict = self.update_mask()
 
             cv2.imshow('Video', frame)
             cv2.imshow('Mask', dict[filter_name])
@@ -203,7 +215,7 @@ class hsv:
     def update_mask(self):
         combined_mask = None
         masks = {}
-
+        
         for filter_name, bounds in self.hsv_filters.items():
             lower_bound = np.array([bounds["h_lower"], bounds['s_lower'], bounds['v_lower']])
             upper_bound = np.array([bounds['h_upper'], bounds['s_upper'], bounds['v_upper']])
@@ -216,6 +228,10 @@ class hsv:
             for cnt in contours:
                 if cv2.contourArea(cnt) > min_area:
                     cv2.drawContours(final, [cnt], -1, 255, thickness=cv2.FILLED)
+
+            # apply closing morphological operation to fill in gaps
+            # kernel = np.ones((50,50),np.uint8)
+            # final_morph = cv2.morphologyEx(final, cv2.MORPH_CLOSE, kernel)
 
             if filter_name == "white" and self.YOLO_lanes:
                 lane_line_mask = self.get_lane_lines_YOLO()
@@ -241,3 +257,8 @@ class hsv:
         self.adjust_gamma()
         self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
         return self.update_mask()
+    
+if __name__ == "__main__":
+    hsv_obj = hsv('data/left_turn.mp4', barrel_model_path='data/obstacles.pt', lane_model_path='data/lane_lines.pt')
+    hsv_obj.tune('white')
+    hsv_obj.tune('yellow')
