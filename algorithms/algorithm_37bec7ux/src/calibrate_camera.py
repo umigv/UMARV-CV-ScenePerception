@@ -12,10 +12,14 @@ Assume I have
 import cv2
 import numpy as np
 import math
+import os
 
 import pyzed.sl as sl
 import ransac.plane
 import ransac.occu
+
+
+
 
 class CameraMergeUI:
     def __init__(self, grid_size=160, panel_size=240):
@@ -128,7 +132,7 @@ class CameraMergeUI:
             1
         )
 
-        right_text = "W/S: Angle   A/D: Disp   Q: Quit"
+        right_text = "W/S: Angle   A/D: Disp   Q: Quit   X: Save"
         (tw, _), _ = cv2.getTextSize(
             right_text,
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -238,7 +242,6 @@ def main():
     drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)
     block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)
 
-    # Mats per camera
     image_mats = [sl.Mat(), sl.Mat()]
     depth_mats = [sl.Mat(), sl.Mat()]
 
@@ -345,6 +348,24 @@ def main():
         )
 
         if key in (27, ord('q')):
+            break
+
+        if key in (ord('x'), ord('X')):
+            
+            os.makedirs("saves/cam_calibration", exist_ok=True)
+            
+            if os.listdir("saves/cam_calibration"):
+                for f in os.listdir("saves/cam_calibration"):
+                    os.remove(os.path.join("saves/cam_calibration", f))
+
+            np.savez(
+                f"saves/cam_calibration/angle_{angle_deg}_disp_{displacement_cm}.npz",
+                angle=angle_deg,
+                displacement=displacement_cm,
+                transform_left=transform_left,
+                transform_right=transform_right
+            )
+            print(f"Saved calibration: angle={angle_deg}, disp={displacement_cm}")
             break
 
     cv2.destroyAllWindows()
