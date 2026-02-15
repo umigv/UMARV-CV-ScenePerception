@@ -195,35 +195,186 @@ class CameraMergeUI:
         return key, angle, displacement
     
 
+import sys
+import pyzed.sl as sl
+from signal import signal, SIGINT
+import argparse
+import os
+import cv2
+import ransac.plane
+import ransac.occu
+import numpy as np
+import math
+from calibrate_camera import CameraMergeUI
+
+cam = sl.Camera()
+
 def main():
-    GRID_SIZE = 5000
+    # --------------------------
+    # INIT TWO CAMERAS
+    # --------------------------
+    cams = []
+    init = sl.InitParameters()
+    init.depth_mode = sl.DEPTH_MODE.NEURAL
+    init.async_image_retrieval = False
 
-    ui = CameraMergeUI(grid_size=GRID_SIZE)
+    devices = sl.Camera.get_device_list()
+    if len(devices) < 2:
+        print("Need at least 2 ZED cameras.")
+        exit(1)
 
-    angle = 20
-    displacement = 5
-    occ1 = np.random.randint(0, 2, (100, 100), np.uint8)
-    occ2 = np.random.randint(0, 2, (100, 100), np.uint8)
+    for dev in devices[:2]:
+        cam = sl.Camera()
+        init.set_from_serial_number(dev.serial_number)
+        status = cam.open(init)
+        if status != sl.ERROR_CODE.SUCCESS:
+            print("Camera open failed:", status)
+            exit(1)
+        cams.append(cam)
 
-    merged_occ = np.maximum(occ1, occ2)
-    print(f'Inputs shape: occ {occ1.shape} ({occ1.min()}, {occ1.max()})')
+    runtime = sl.RuntimeParameters()
 
-    while True:
-            
+    # --------------------------
+    # CAMERA INFO + INTRINSICS
+    # --------------------------
+    cam_info = cams[0].get_camera_information()
+    resolution = cam_info.camera_configuration.resolution
+    w = min(720, resolution.width)
+    h = min(404, resolution.height)
+    low_res = sl.Resolution(w, h)
+
+    calibration_params = cam_info.camera_configuration.calibration_parameters
+    fx = calibration_params.left_cam.fx
+    fy = calibration_params.left_cam.fy
+
+    intr = ransac.Intrinsics(w / 2, h / 2, fx / 2, fy / 2)
+
+    drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)
+    block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)
+
+    # Mats per camera
+    image_mats = [sl.Mat(), sl.Mat()]
+    depth_mats = [sl.Mat(), sl.Mat()]
+
+    ui = CameraMergeUI(grid_size=60)
+    angle_deg = 0
+    displacement_cm = 0
+
+    key = 0
+
+    # ==========================
+    # MAIN LOOP
+    # ==========================
+    while key != 113:
+
+        occ_grids = []
+
+        for i in range(2):
+
+            err = cams[i].grab(runtime)
+            if err != sl.ERROR_CODE.SUCCESS:
+                print("Grab error:", err)
+                continue
+
+            cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+            cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+
+            image = image_mats[i].get_data()
+            depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+
+            # ---- GROUND RANSAC ----
+            ransac_output, px_coeffs = ransac.plane.ground_plane(
+                depths, 60, (1, 16), 0.15
+            )
+
+            real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
+
+            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
+            drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real_coeffs, intr)
+
+            block_ppc = ransac.occu.create_point_cloud(
+                ransac_output != 1, depths
+            )
+            block_rpc = ransac.occu.pixel_to_real(
+                block_ppc, real_coeffs, intr
+            )
+
+            drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
+            block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
+
+            full_occ = ransac.occu.composite(drive_occ, block_occ)
+
+            occ_grids.append(full_occ)
+
+        if len(occ_grids) < 2:
+            continue
+
+        full_occ_left = occ_grids[0]
+        full_occ_right = occ_grids[1]
+
+        # --------------------------
+        # APPLY USER TRANSFORM
+        # --------------------------
+        h_occ, w_occ = full_occ_left.shape
+
+        transform_left = cv2.getRotationMatrix2D(
+            (w_occ // 2, h_occ // 2),
+            angle_deg / 2,
+            1
+        )
+        transform_left[0, 2] -= displacement_cm / 2
+
+        transform_right = cv2.getRotationMatrix2D(
+            (w_occ // 2, h_occ // 2),
+            -angle_deg / 2,
+            1
+        )
+        transform_right[0, 2] += displacement_cm / 2
+
+        occ1 = cv2.warpAffine(
+            full_occ_left,
+            transform_left,
+            (w_occ, h_occ),
+            flags=cv2.INTER_LINEAR
+        )
+
+        occ2 = cv2.warpAffine(
+            full_occ_right,
+            transform_right,
+            (w_occ, h_occ),
+            flags=cv2.INTER_LINEAR
+        )
+
+        merged_occ = np.maximum(occ1, occ2)
+        merged_occ = np.where(
+            (occ1 == 128) | (occ2 == 128),
+            np.maximum(occ1, occ2),
+            merged_occ
+        )
+
+        # --------------------------
+        # RENDER UI
+        # --------------------------
         ui.render(
             occ1=occ1,
             occ2=occ2,
             merged_occ=merged_occ,
-            angle=angle,
-            displacement=displacement,
+            angle=angle_deg,
+            displacement=displacement_cm
         )
 
-        key, angle, displacement = ui.handle_keyboard(angle, displacement)
+        key, angle_deg, displacement_cm = ui.handle_keyboard(
+            angle_deg,
+            displacement_cm
+        )
 
         if key in (27, ord('q')):
             break
 
     cv2.destroyAllWindows()
+
+    for cam in cams:
+        cam.close()
 
 
 
