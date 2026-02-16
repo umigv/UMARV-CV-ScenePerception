@@ -77,9 +77,11 @@ class leftTurn:
         
         cv2.circle(self.final, self.centroid, 10, 255, -1)
         cv2.imshow("mask", self.final)
-        # final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
-        # combined = np.vstack((self.image, final_bgr))
+        # cv2.imshow("mask", self.yellow_mask)
+        final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
+        # combined = np.hstack((self.image, final_bgr))
         # cv2.imshow("mask", combined)
+        # cv2.imshow("original", self.image)
         
     def in_bounds(self, x, y):
         return 0 <= x < self.width and 0 <= y < self.height
@@ -128,7 +130,7 @@ class leftTurn:
     
     # Initial straightaway before crossing stop line
     def state_1(self):
-        # print("state_1")
+        print("state_1")
         # Induce forward trajetory
         # This is a will be for the initial straightaway before we cross the stopping line
         status = self.past_stop_line()
@@ -146,7 +148,7 @@ class leftTurn:
 
     # Already passed the yellow line. Do constant left-turn tendency until we see yellow dashed
     def state_2(self):
-        # print("state_2")
+        print("state_2")
         # induce a constant left turn with waypoint in top corner
         # This is for the point where we have crossed the 
         # stopping line but have yet to see the yellow
@@ -161,7 +163,7 @@ class leftTurn:
         
      # If we see yellow dashed, align with turn lane (and check for cone)    
     def state_3(self, best_cnt):
-        # print("state_3")
+        print("state_3")
         # Draw lane lines to align ourselves with the turn lane
         # Anytime we see yellow dashed we should invoke this state
         
@@ -216,8 +218,8 @@ class leftTurn:
                 
                 self.diff_x, self.diff_y = self.find_slope(y, x, edge_white_y, edge_white_x)
                 x, y = edge_white_x, edge_white_y
-                self.diff_x //= 10
-                self.diff_y //= 10
+                self.diff_x //= 20
+                self.diff_y //= 20
 
                 # g = math.gcd(abs(self.diff_x), abs(self.diff_y))
                 # print("gcd:", g)
@@ -225,8 +227,8 @@ class leftTurn:
                 #     self.diff_x //= g
                 #     self.diff_y //= g
                 
-                x -= self.diff_x * 5
-                y -= self.diff_y * 5
+                x -= self.diff_x * 10
+                y -= self.diff_y * 10
                 
                 point_list = []
                 

@@ -259,6 +259,6 @@ class hsv:
         return self.update_mask()
     
 if __name__ == "__main__":
-    hsv_obj = hsv('data/left_turn.mp4', barrel_model_path='data/obstacles.pt', lane_model_path='data/lane_lines.pt')
+    hsv_obj = hsv('data/left_turn.mp4')
     hsv_obj.tune('white')
     hsv_obj.tune('yellow')
