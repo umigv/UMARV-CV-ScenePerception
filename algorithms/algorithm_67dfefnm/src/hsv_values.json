@@ -18,5 +18,15 @@
             "v_upper": 255,
             "v_lower": 207
         }
+    },
+    "green-reference": {
+        "ramp_color": {
+            "h_upper": 107,
+            "h_lower": 61,
+            "s_upper": 151,
+            "s_lower": 61,
+            "v_upper": 231,
+            "v_lower": 120
+        }
     }
 }

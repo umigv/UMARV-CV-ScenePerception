@@ -52,12 +52,12 @@ class NoMansLand:
         diag_length = ((self.width ** 2) + (self.height ** 2)) ** 0.5
 
         # bottom left
-        bl_ref_vec = (1.0, -1.0)
+        bl_ref_vec = (1.0, -1.5)
         most_bl_point = (self.ramp_cnt[0, 0, 0], self.ramp_cnt[0, 0, 1])
         min_bl_dist = diag_length
 
         # bottom right
-        br_ref_vec = (-1.0, -1.0)
+        br_ref_vec = (-1.0, -1.5)
         most_br_point = (self.ramp_cnt[0, 0, 0], self.ramp_cnt[0, 0, 1])
         min_br_dist = diag_length
 
@@ -144,12 +144,24 @@ class NoMansLand:
             self.state_1()
 
     def run(self):
-        vid = "ramp.MOV"
+        vid = "ramp6.MOV"
         path = "data/" + vid
         cap = cv2.VideoCapture(path) # 0 for webcam, 1,2 for external cameras
-        self.hsv_obj = hsv(path)
+        self.hsv_obj = hsv("green-reference")
+
+        # green reference
+        # "ramp_color": {
+        #     "h_upper": 107,
+        #     "h_lower": 61,
+        #     "s_upper": 151,
+        #     "s_lower": 61,
+        #     "v_upper": 231,
+        #     "v_lower": 120
+        # }
 
         # self.hsv_obj.tune("ramp_color")
+        # you need a JSON entry with the same name as your video to use this
+        # you can rename the "green-reference" entry to your video temporarily to tune it
                     
         while cap.isOpened():
             try: 
