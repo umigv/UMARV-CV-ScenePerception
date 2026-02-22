@@ -15,7 +15,7 @@ def pool(depths, kernel: tuple[int, int]):
     w -= w % kernel[1]
     h -= h % kernel[0]
     depths = depths[:h, :w]
-    return skimage.measure.block_reduce(depths, kernel, np.mean)
+    return skimage.measure.block_reduce(depths, kernel, np.max) # remove influence of -1 values that plague np.mean
 
 
 def sample(pooled):
