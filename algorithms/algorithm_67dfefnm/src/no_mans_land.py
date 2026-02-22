@@ -113,15 +113,18 @@ class NoMansLand:
 
         mid_bottom = ((bottom_left[0] + bottom_right[0]) // 2, (bottom_left[1] + bottom_right[1]) // 2)
         mid_top = ((top_left[0] + top_right[0]) // 2, (top_left[1] + top_right[1]) // 2)
+        mid = ((mid_bottom[0] + mid_top[0]) // 2, (mid_bottom[1] + mid_top[1]) // 2)
 
         if self.ramp_mask[self.height - 15, self.width // 2] != 0: # we are probably on the ramp now
             self.centroid = (mid_top[0], mid_top[1] - 50)
             cv2.line(self.final, top_left, (0, 0), 255, 10)
             cv2.line(self.final, top_right, (self.width, 0), 255, 10)
+            cv2.circle(self.final, mid, 10, 128, -1)
         else:
             self.centroid = (mid_bottom[0], min(self.height - 1, mid_bottom[1] + 50))
             cv2.line(self.final, bottom_left, (0, self.height), 255, 10)
             cv2.line(self.final, bottom_right, (self.width, self.height), 255, 10)
+            cv2.circle(self.final, mid, 10, 128, -1)
 
         if self.debug:
             cv2.circle(self.final, bottom_left, 7, 128, -1)
@@ -131,6 +134,7 @@ class NoMansLand:
 
             cv2.circle(self.final, mid_bottom, 10, 128, -1)
             cv2.circle(self.final, mid_top, 10, 128, -1)
+            cv2.circle(self.final, mid, 10, 128, -1)
 
     def state_machine(self):
         ramp_visible = False
