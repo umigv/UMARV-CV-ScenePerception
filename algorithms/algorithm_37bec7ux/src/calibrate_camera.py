@@ -324,19 +324,11 @@ def main():
             half_angle_rad = np.deg2rad(angle_deg / 2)
             half_displacement_mm = displacement_cm * 10 / 2
 
-            if i == 0: # left camera
-                drive_rpc = ransac.occu.pixel_to_real(last_drive_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad)
-                drive_rpc[:, 0] -= half_displacement_mm
-            else:
-                drive_rpc = ransac.occu.pixel_to_real(last_drive_ppc[i], last_real_coeffs[i], intr[i], -half_angle_rad)
-                drive_rpc[:, 0] += half_displacement_mm
-
-            if i == 0:
-                block_rpc = ransac.occu.pixel_to_real(last_block_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad)
-                block_rpc[:, 0] -= half_displacement_mm
-            else:   
-                block_rpc = ransac.occu.pixel_to_real(last_block_ppc[i], last_real_coeffs[i], intr[i], -half_angle_rad)
-                block_rpc[:, 0] += half_displacement_mm
+            drive_rpc = ransac.occu.pixel_to_real(last_drive_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad * (1 if i == 0 else -1))
+            drive_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
+        
+            block_rpc = ransac.occu.pixel_to_real(last_block_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad * (1 if i == 0 else -1))
+            block_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
