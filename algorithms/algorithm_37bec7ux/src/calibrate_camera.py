@@ -28,7 +28,9 @@ class CameraMergeUI:
 
         self.window_name = "Camera Merge Tuner"
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 1500, 1050)
+        cv2.resizeWindow(self.window_name, 1800, 1250)
+
+        self.pause = False
 
     def _draw_centered_text(self, img, text, y, scale=0.45, color=(220, 220, 220)):
         (tw, _), _ = cv2.getTextSize(
@@ -132,7 +134,7 @@ class CameraMergeUI:
             1
         )
 
-        right_text = "W/S: Angle   A/D: Disp   Q: Quit   X: Save"
+        right_text = "W/S: Angle | A/D: Disp | P: Pause | Q: Quit | X: Save"
         (tw, _), _ = cv2.getTextSize(
             right_text,
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -199,6 +201,9 @@ class CameraMergeUI:
         elif key in (ord('d'), ord('D')):
             displacement += 1
 
+        elif key in (ord('p'), ord('P')):
+            self.pause = not self.pause
+
         return key, angle, displacement
     
 
@@ -227,17 +232,19 @@ def main():
 
     runtime = sl.RuntimeParameters()
 
-    cam_info = cams[0].get_camera_information()
-    resolution = cam_info.camera_configuration.resolution
-    w = min(720, resolution.width)
-    h = min(404, resolution.height)
-    low_res = sl.Resolution(w, h)
+    intr = [None, None]
+    for i in range(2):
+        cam_info = cams[i].get_camera_information()
+        resolution = cam_info.camera_configuration.resolution
+        w = min(720, resolution.width)
+        h = min(404, resolution.height)
+        low_res = sl.Resolution(w, h)
 
-    calibration_params = cam_info.camera_configuration.calibration_parameters
-    fx = calibration_params.left_cam.fx
-    fy = calibration_params.left_cam.fy
+        calibration_params = cam_info.camera_configuration.calibration_parameters
+        fx = calibration_params.left_cam.fx
+        fy = calibration_params.left_cam.fy
 
-    intr = ransac.Intrinsics(w / 2, h / 2, fx / 2, fy / 2)
+        intr[i] = ransac.Intrinsics(w / 2, h / 2, fx / 2, fy / 2)
 
     drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)
     block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)
@@ -250,6 +257,10 @@ def main():
     displacement_cm = 0
 
     key = 0
+    # Keep last raw point-clouds + plane coeffs so pause doesn't grab new frames
+    last_drive_ppc = [None, None]
+    last_block_ppc = [None, None]
+    last_real_coeffs = [None, None]
 
     while key != 113:
 
@@ -257,32 +268,75 @@ def main():
 
         for i in range(2):
 
-            err = cams[i].grab(runtime)
-            if err != sl.ERROR_CODE.SUCCESS:
-                print("Grab error:", err)
+            if not ui.pause:
+                err = cams[i].grab(runtime)
+                if err != sl.ERROR_CODE.SUCCESS:
+                    print("Grab error:", err)
+                    continue
+
+                cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+                cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+
+                image = image_mats[i].get_data()
+                depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+
+                ransac_output, px_coeffs = ransac.plane.ground_plane(
+                    depths, 60, (1, 16), 0.15
+                )
+
+                real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr[i])
+
+                drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
+
+                block_ppc = ransac.occu.create_point_cloud(
+                    ransac_output != 1, depths
+                )
+
+                # store raw intermediate data so we can reuse while paused
+                last_drive_ppc[i] = drive_ppc
+                last_block_ppc[i] = block_ppc
+                last_real_coeffs[i] = real_coeffs
+
+            else:
+                # Paused: reuse last captured raw data; if missing, perform one grab to initialize
+                if last_drive_ppc[i] is None or last_block_ppc[i] is None or last_real_coeffs[i] is None:
+                    err = cams[i].grab(runtime)
+                    if err != sl.ERROR_CODE.SUCCESS:
+                        print("Grab error during pause-init:", err)
+                        continue
+                    cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+                    cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+                    image = image_mats[i].get_data()
+                    depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+                    ransac_output, px_coeffs = ransac.plane.ground_plane(
+                        depths, 60, (1, 16), 0.15
+                    )
+                    last_real_coeffs[i] = ransac.plane.real_coeffs(px_coeffs, intr[i])
+                    last_drive_ppc[i] = ransac.occu.create_point_cloud(ransac_output, depths)
+                    last_block_ppc[i] = ransac.occu.create_point_cloud(
+                        ransac_output != 1, depths
+                    )
+
+            # If we have stored raw data, compute RPCs and occupancy using current angle/displacement
+            if last_drive_ppc[i] is None or last_block_ppc[i] is None or last_real_coeffs[i] is None:
                 continue
 
-            cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
-            cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+            half_angle_rad = np.deg2rad(angle_deg / 2)
+            half_displacement_mm = displacement_cm * 10 / 2
 
-            image = image_mats[i].get_data()
-            depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+            if i == 0: # left camera
+                drive_rpc = ransac.occu.pixel_to_real(last_drive_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad)
+                drive_rpc[:, 0] -= half_displacement_mm
+            else:
+                drive_rpc = ransac.occu.pixel_to_real(last_drive_ppc[i], last_real_coeffs[i], intr[i], -half_angle_rad)
+                drive_rpc[:, 0] += half_displacement_mm
 
-            ransac_output, px_coeffs = ransac.plane.ground_plane(
-                depths, 60, (1, 16), 0.15
-            )
-
-            real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
-
-            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
-            drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real_coeffs, intr)
-
-            block_ppc = ransac.occu.create_point_cloud(
-                ransac_output != 1, depths
-            )
-            block_rpc = ransac.occu.pixel_to_real(
-                block_ppc, real_coeffs, intr
-            )
+            if i == 0:
+                block_rpc = ransac.occu.pixel_to_real(last_block_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad)
+                block_rpc[:, 0] -= half_displacement_mm
+            else:   
+                block_rpc = ransac.occu.pixel_to_real(last_block_ppc[i], last_real_coeffs[i], intr[i], -half_angle_rad)
+                block_rpc[:, 0] += half_displacement_mm
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
@@ -294,45 +348,12 @@ def main():
         if len(occ_grids) < 2:
             continue
 
-        full_occ_left = occ_grids[0]
-        full_occ_right = occ_grids[1]
+        occ1 = occ_grids[0]
+        occ2 = occ_grids[1]
 
-        h_occ, w_occ = full_occ_left.shape
-
-        transform_left = cv2.getRotationMatrix2D(
-            (w_occ // 2, h_occ // 2),
-            angle_deg / 2,
-            1
-        )
-        transform_left[0, 2] -= displacement_cm / 3.3 / 2
-
-        transform_right = cv2.getRotationMatrix2D(
-            (w_occ // 2, h_occ // 2),
-            -angle_deg / 2,
-            1
-        )
-        transform_right[0, 2] += displacement_cm / 3.3 / 2
-
-        occ1 = cv2.warpAffine(
-            full_occ_left,
-            transform_left,
-            (w_occ, h_occ),
-            flags=cv2.INTER_LINEAR
-        )
-
-        occ2 = cv2.warpAffine(
-            full_occ_right,
-            transform_right,
-            (w_occ, h_occ),
-            flags=cv2.INTER_LINEAR
-        )
-
-        merged_occ = np.maximum(occ1, occ2)
-        merged_occ = np.where(
-            (occ1 == 128) | (occ2 == 128),
-            np.maximum(occ1, occ2),
-            merged_occ
-        )
+        # Average (int) + threshold
+        merged_occ = (occ1.astype(np.int32) + occ2.astype(np.int32)) // 2
+        merged_occ = np.where(merged_occ > 127, 255, np.where(merged_occ < 127, 0, 127)).astype(np.uint8)
 
         ui.render(
             occ1=occ1,
@@ -362,8 +383,6 @@ def main():
                 f"saves/cam_calibration/angle_{angle_deg}_disp_{displacement_cm}.npz",
                 angle=angle_deg,
                 displacement=displacement_cm,
-                transform_left=transform_left,
-                transform_right=transform_right
             )
             print(f"Saved calibration: angle={angle_deg}, disp={displacement_cm}")
             break
