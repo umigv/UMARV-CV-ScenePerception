@@ -10,12 +10,14 @@ import numpy.typing as npt
 import skimage
 import cv2
 
+
 def pool(depths, kernel: tuple[int, int]):
     h, w = depths.shape
     w -= w % kernel[1]
     h -= h % kernel[0]
     depths = depths[:h, :w]
-    return skimage.measure.block_reduce(depths, kernel, np.max) # remove influence of -1 values that plague np.mean
+    # remove influence of -1 values that plague np.mean
+    return skimage.measure.block_reduce(depths, kernel, np.max)
 
 
 def sample(pooled):
@@ -65,15 +67,19 @@ def clean_depths(depths):
 
 # will maintain the dimensions of the original
 def ground_plane(
-    depths, iters: int = 60, kernel: tuple[int, int] = (1, 12), tol: float = 0.1
-):
+        depths, iters: int = 60, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, _guess: np.ndarray = np.array([0, 0, 0])):
+    guess = _guess
+    if guess.shape != (1, 3):
+        print("warning: invalid plane coefficient estimates")
+        guess = np.array([0, 0, 0])
+
     depths = clean_depths(depths)
     max_depth = float(depths.max())
     inv_depths = max_depth / depths
 
     pooled = pool(inv_depths, kernel)
-    best = 0
-    best_coeffs = [0, 0, 0]
+    best_coeffs = guess
+    best = metric(pooled, best_coeffs, tol)
 
     for _ in range(iters):
         A, b = sample(pooled)
@@ -86,7 +92,7 @@ def ground_plane(
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]
 
-    res = mask(inv_depths, best_coeffs, tol)    
+    res = mask(inv_depths, best_coeffs, tol)
 
     return res, np.array(best_coeffs) / max_depth
 

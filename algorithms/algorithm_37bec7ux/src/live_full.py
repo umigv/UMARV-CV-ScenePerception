@@ -123,6 +123,8 @@ def main():
     depth_m = sl.Mat()
 
     key = 0
+    
+    px_coeffs = [0, 0, 0]
     while key != 113:  # for 'q' key
         err = cam.grab(runtime)
         if err <= sl.ERROR_CODE.SUCCESS:  # good to go
@@ -138,7 +140,7 @@ def main():
             # ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
             # GROUND ONLY
             ransac_output, px_coeffs = ransac.plane.ground_plane(
-                depths, 60, (1, 16), 0.15
+                depths, 30, (1, 16), 0.15, _guess=px_coeffs
             )
 
             real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
