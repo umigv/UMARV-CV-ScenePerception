@@ -71,16 +71,17 @@ class CameraMergeUI:
         panel[y0:y0 + h, x0:x0 + w] = img_resized
         return panel
 
-    def _draw_camera_top_view(self, width, angle, displacement):
+    def _draw_camera_top_view(self, width, angle, displacement, z_offset):
         height = 260
         canvas = np.ones((height, width, 3), dtype=np.uint8) * 30
 
         fov_half = np.deg2rad(110 / 2)
         center_y = height // 2 + 10
-        baseline = displacement * 4
+        baseline = displacement * 2
+        z_shift = z_offset * 2
 
-        cam1 = np.array([width // 2 - baseline, center_y])
-        cam2 = np.array([width // 2 + baseline, center_y])
+        cam1 = np.array([width // 2 - baseline, center_y + z_shift])
+        cam2 = np.array([width // 2 + baseline, center_y - z_shift])
 
         yaw = np.deg2rad(angle / 2)
 
@@ -119,14 +120,14 @@ class CameraMergeUI:
 
         return bar
 
-    def _draw_controls_bar(self, width, angle, displacement):
-        h = 50
+    def _draw_controls_bar(self, width, angle, displacement, z_offset):
+        h = 80
         bar = np.ones((h, width, 3), dtype=np.uint8) * 28
 
-        left_text = f"Angle: {angle} deg    Disp: {displacement} cm"
+        values_text = f"Angle: {angle} deg    Disp: {displacement} cm    Z-Off: {z_offset} cm"
         cv2.putText(
             bar,
-            left_text,
+            values_text,
             (20, 32),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
@@ -134,19 +135,11 @@ class CameraMergeUI:
             1
         )
 
-        right_text = "W/S: Angle | A/D: Disp | P: Pause | Q: Quit | X: Save"
-        (tw, _), _ = cv2.getTextSize(
-            right_text,
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            1
-        )
-        x = width - tw - 20
-
+        controls_text = "Q/E: Angle | A/D: Disp | W/S: Z-Offset | P: Pause | X/Esc: Exit | M: Save"
         cv2.putText(
             bar,
-            right_text,
-            (x, 32),
+            controls_text,
+            (20, 64),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
             (180, 180, 180),
@@ -162,6 +155,7 @@ class CameraMergeUI:
         merged_occ,
         angle,
         displacement,
+        z_offset,
     ):
         occ_row = np.hstack([
             self._make_panel("Camera 1 - Occ", self._colorize_grid(occ1), (255, 120, 120)),
@@ -172,8 +166,8 @@ class CameraMergeUI:
         width = occ_row.shape[1]
 
         title_bar = self._draw_title_bar(width)
-        camera_view = self._draw_camera_top_view(width, angle, displacement)
-        controls = self._draw_controls_bar(width, angle, displacement)
+        camera_view = self._draw_camera_top_view(width, angle, displacement, z_offset)
+        controls = self._draw_controls_bar(width, angle, displacement, z_offset)
 
         dashboard = np.vstack([
             title_bar,
@@ -185,18 +179,24 @@ class CameraMergeUI:
         cv2.imshow(self.window_name, dashboard)
 
     
-    def handle_keyboard(self, angle, displacement):
+    def handle_keyboard(self, angle, displacement, z_offset):
 
         key = cv2.waitKey(30) & 0xFF
 
-        if key in (ord('w'), ord('W')):
+        if key in (ord('q'), ord('Q')):
             angle = min(90, angle + 1)
 
-        elif key in (ord('s'), ord('S')):
+        elif key in (ord('e'), ord('E')):
             angle = max(-90, angle - 1)
 
+        elif key in (ord('w'), ord('W')):
+            z_offset += 1
+
+        elif key in (ord('s'), ord('S')):
+            z_offset -= 1
+
         elif key in (ord('a'), ord('A')):
-            displacement = max(0, displacement - 1)
+            displacement -= 1
 
         elif key in (ord('d'), ord('D')):
             displacement += 1
@@ -204,7 +204,7 @@ class CameraMergeUI:
         elif key in (ord('p'), ord('P')):
             self.pause = not self.pause
 
-        return key, angle, displacement
+        return key, angle, displacement, z_offset
     
 
 
@@ -255,6 +255,7 @@ def main():
     ui = CameraMergeUI(grid_size=60)
     angle_deg = 0
     displacement_cm = 0
+    z_offset_cm = 0
 
     key = 0
     # Keep last raw point-clouds + plane coeffs so pause doesn't grab new frames
@@ -262,7 +263,7 @@ def main():
     last_block_ppc = [None, None]
     last_real_coeffs = [None, None]
 
-    while key != 113:
+    while True:
 
         occ_grids = []
 
@@ -323,12 +324,15 @@ def main():
 
             half_angle_rad = np.deg2rad(angle_deg / 2)
             half_displacement_mm = displacement_cm * 10 / 2
+            half_z_offset_mm = z_offset_cm * 10 / 2
 
             drive_rpc = ransac.occu.pixel_to_real(last_drive_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad * (1 if i == 0 else -1))
             drive_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
+            drive_rpc[:, 2] += (-1 if i == 0 else 1) * half_z_offset_mm
         
             block_rpc = ransac.occu.pixel_to_real(last_block_ppc[i], last_real_coeffs[i], intr[i], half_angle_rad * (1 if i == 0 else -1))
             block_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
+            block_rpc[:, 2] += (-1 if i == 0 else 1) * half_z_offset_mm
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
@@ -352,18 +356,20 @@ def main():
             occ2=occ2,
             merged_occ=merged_occ,
             angle=angle_deg,
-            displacement=displacement_cm
+            displacement=displacement_cm,
+            z_offset=z_offset_cm
         )
 
-        key, angle_deg, displacement_cm = ui.handle_keyboard(
+        key, angle_deg, displacement_cm, z_offset_cm = ui.handle_keyboard(
             angle_deg,
-            displacement_cm
+            displacement_cm,
+            z_offset_cm
         )
 
-        if key in (27, ord('q')):
+        if key in (27, ord('x'), ord('X')):
             break
 
-        if key in (ord('x'), ord('X')):
+        if key in (ord('m'), ord('M')):
             
             os.makedirs("saves/cam_calibration", exist_ok=True)
             
@@ -372,14 +378,12 @@ def main():
                     os.remove(os.path.join("saves/cam_calibration", f))
 
             np.savez(
-                f"saves/cam_calibration/angle_{angle_deg}_disp_{displacement_cm}.npz",
+                f"saves/cam_calibration/angle_{angle_deg}_disp_{displacement_cm}_zoff_{z_offset_cm}.npz",
                 angle=angle_deg,
                 displacement=displacement_cm,
+                z_offset=z_offset_cm
             )
-            print(f"Saved calibration: angle={angle_deg}, disp={displacement_cm}")
-            break
-
-    cv2.destroyAllWindows()
+            print(f"Saved calibration: angle={angle_deg}, disp={displacement_cm}, z_offset={z_offset_cm}")
 
     for cam in cams:
         cam.close()
