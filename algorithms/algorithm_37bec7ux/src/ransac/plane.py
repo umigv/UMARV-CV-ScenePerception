@@ -67,19 +67,24 @@ def clean_depths(depths):
 
 # will maintain the dimensions of the original
 def ground_plane(
-        depths, iters: int = 60, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, _guess: np.ndarray = np.array([0, 0, 0])):
-    guess = _guess
-    if guess.shape != (1, 3):
-        print("warning: invalid plane coefficient estimates")
-        guess = np.array([0, 0, 0])
+        depths, iters: int = 60, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, guess: np.ndarray = np.array([0.0, 0.0, 0.0])):
 
     depths = clean_depths(depths)
     max_depth = float(depths.max())
     inv_depths = max_depth / depths
 
     pooled = pool(inv_depths, kernel)
-    best_coeffs = guess
+
+    best_coeffs = guess.astype(float)
+    if guess.shape != (3,):
+        print("warning: invalid plane coefficient estimates")
+        best_coeffs= np.array([0.0, 0.0, 0.0])
+    else:
+        best_coeffs *= float(max_depth)
+        best_coeffs[0] *= float(kernel[1])
+        best_coeffs[1] *= float(kernel[0])
     best = metric(pooled, best_coeffs, tol)
+
 
     for _ in range(iters):
         A, b = sample(pooled)
