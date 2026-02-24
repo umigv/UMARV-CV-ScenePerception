@@ -15,7 +15,7 @@ filename = "res/perspective_test.svo2.hdf5"
 frame_number = -1
 
 iters = 50
-kernel = (2, 32)  # kernel is rows, columns
+kernel = (1, 16)  # kernel is rows, columns
 tolerance = 0.1
 
 # INPUT FILTERING (@the2nake)
@@ -72,8 +72,10 @@ occ_h, occ_w = full_occ.shape
 cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
                            3 * math.pi / 4, math.radians(90))
 # remove cam to use morphology technique (faster)
-los_grid = ransac.occu.create_los_grid(full_occ, [cam])
+
 end = time.perf_counter()
+
+los_grid = ransac.occu.create_los_grid(full_occ, [cam]) # IMPORTANT don't profile this, has JIT compile time of 0.5s
 
 # DISPLAY DATA
 
