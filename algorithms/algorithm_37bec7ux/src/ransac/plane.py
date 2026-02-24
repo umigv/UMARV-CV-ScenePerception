@@ -17,13 +17,14 @@ def pool(depths, kernel: tuple[int, int]):
     h -= h % kernel[0]
     depths = depths[:h, :w]
     # remove influence of -1 values that plague np.mean
-    return skimage.measure.block_reduce(depths, kernel, np.max)
+    return depths[:h, :w].reshape(h//kernel[0], kernel[0], w//kernel[1], kernel[1]).max(axis=(1, 3))
 
 
 def sample(pooled):
     h, w = pooled.shape
     A = np.zeros((3, 3))
     b = np.zeros(3)
+
     while True:
         for i in range(3):
             row = -1
