@@ -124,7 +124,7 @@ def main():
 
     key = 0
     
-    px_coeffs = [0, 0, 0]
+    px_coeffs = np.array([0, 0, 0])
     while key != 113:  # for 'q' key
         err = cam.grab(runtime)
         if err <= sl.ERROR_CODE.SUCCESS:  # good to go
@@ -140,17 +140,17 @@ def main():
             # ransac_output, ransac_coeffs = ransac.plane.hsv_and_ransac(image, depths, 60, (1, 16), 0.15)
             # GROUND ONLY
             ransac_output, px_coeffs = ransac.plane.ground_plane(
-                depths, 30, (1, 16), 0.15, _guess=px_coeffs
+                depths, 30, (1, 16), 0.15, guess=px_coeffs
             )
 
             real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
             rad = ransac.plane.real_angle(real_coeffs)
 
-            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
+            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths, 0)
             drive_rpc = ransac.occu.pixel_to_real(
                 drive_ppc, real_coeffs, intr)
             block_ppc = ransac.occu.create_point_cloud(
-                ransac_output != 1, depths)
+                ransac_output != 1, depths, 0)
             block_rpc = ransac.occu.pixel_to_real(
                 block_ppc, real_coeffs, intr)
 
@@ -180,7 +180,7 @@ def main():
                 # n by 2 array of (x, z) coordinates
                 pred_real = ransac.occu.pixel_to_real(
                     pred, real_coeffs, intr)[:, (0, 2)]
-            print(pred_real)
+            # print(pred_real)
 
             print(f"angle: {math.degrees(rad): .3f} deg")
 
