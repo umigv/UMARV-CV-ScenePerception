@@ -1,5 +1,6 @@
 # ground plane mask to occupancy grid
 
+from numba import njit
 from ransac import *
 
 import ransac.plane
@@ -110,7 +111,6 @@ def fast_los_grid(merged: npt.NDArray, iters=10):
         work[merged == 0] = 0
     return work
 
-from numba import njit
 
 @njit(cache=True)
 def _trace_and_fill(merged, i0, j0, i1, j1):
@@ -144,6 +144,7 @@ def _trace_and_fill(merged, i0, j0, i1, j1):
             err += di
             j += sj
 
+
 def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
     # merged: 2-d boolean array with 0/255 as known driveable/undriveable
     #         all other values are unknown
@@ -165,21 +166,21 @@ def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
         x1, y1 = cam.j + int(dx1 * r), cam.i + int(dy1 * r)
 
         # restrict x
-        nx0, nx1 = np.clip((x0, x1), 0, w - 1)
+        nx0 = np.clip(x0, 0, w-1)
+        nx1 = np.clip(x1, 0, w-1)
         y0 += (nx0 - x0) * dy0 / dx0
         x0 = nx0
         y1 += (nx1 - x1) * dy1 / dx1
         x1 = nx1
 
         # restrict y
-        ny0, ny1 = np.clip((y0, y1), 0, h - 1)
+        ny0 = np.clip(y0, 0, h-1)
+        ny1 = np.clip(y1, 0, h-1)
         x0 += (ny0 - y0) * dx0 / dy0
         y0 = ny0
         x1 += (ny1 - y1) * dx1 / dy1
         y1 = ny1
 
-        x0, x1 = np.clip((x0, x1), 0, w - 1)
-        y0, y1 = np.clip((y0, y1), 0, h - 1)
         x0, x1, y0, y1 = int(x0), int(x1), int(y0), int(y1)
 
         idx, jdx = [], []
