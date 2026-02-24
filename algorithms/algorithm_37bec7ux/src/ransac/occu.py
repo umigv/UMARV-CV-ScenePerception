@@ -8,7 +8,6 @@ import ransac.plane
 import numpy as np
 import numpy.typing as npt
 import cv2
-import skimage
 
 import math
 
