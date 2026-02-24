@@ -110,6 +110,39 @@ def fast_los_grid(merged: npt.NDArray, iters=10):
         work[merged == 0] = 0
     return work
 
+from numba import njit
+
+@njit(cache=True)
+def _trace_and_fill(merged, i0, j0, i1, j1):
+    # Bresenham walk from (i0,j0) -> (i1,j1)
+    di = abs(i1 - i0)
+    dj = abs(j1 - j0)
+    si = 1 if i0 < i1 else -1
+    sj = 1 if j0 < j1 else -1
+    err = di - dj
+
+    i, j = i0, j0
+    state = 255
+
+    while True:
+        v = merged[i, j]
+        if v == 0:
+            state = 0
+        elif v == 255:
+            state = 255
+        else:
+            merged[i, j] = state
+
+        if i == i1 and j == j1:
+            break
+
+        e2 = err + err
+        if e2 > -dj:
+            err -= dj
+            i += si
+        if e2 < di:
+            err += di
+            j += sj
 
 def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
     # merged: 2-d boolean array with 0/255 as known driveable/undriveable
@@ -167,14 +200,6 @@ def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
 
         merged[cam.i, cam.j] = 255
         for end_i, end_j in zip(idx, jdx):
-            state = 255
-            line = skimage.draw.line(cam.i, cam.j, end_i, end_j)
-            for p in range(len(line[0])):
-                if merged[line[0][p], line[1][p]] == 0:
-                    state = 0
-                elif merged[line[0][p], line[1][p]] == 255:
-                    state = 255
-                else:
-                    merged[line[0][p], line[1][p]] = state
+            _trace_and_fill(merged, cam.i, cam.j, end_i, end_j)
 
     return merged
