@@ -6,7 +6,6 @@ from ransac import *
 import ransac.plane
 
 import numpy as np
-import numpy.typing as npt
 import cv2
 
 import math
@@ -14,7 +13,7 @@ import math
 # TODO: create a tool to tune grid paramters (scale, rotation, translation) in real time (or on a recording)
 
 
-def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
+def create_ground_cloud(coords, ransac_coeffs):
     # coords is a Nx2 numpy array containing coordinates (x, y)
     # pass pixel coefficients
 
@@ -25,7 +24,7 @@ def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
     return np.concatenate((coords.astype(np.float64), z), axis=1)
 
 
-def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3):
+def create_point_cloud(mask, depth_map, skip: int = 3):
     coords = np.argwhere(mask).astype(np.int64)
     coords[:, [0, 1]] = coords[:, [1, 0]]  # (row, col) -> (x, y)
     depths = depth_map[coords[:, 1], coords[:, 0]].reshape(-1, 1)
@@ -35,7 +34,7 @@ def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3)
 
 
 def pixel_to_real(
-        pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: Intrinsics, orientation: float = 0.0):
+        pixel_cloud, real_coeffs, intr: Intrinsics, orientation: float = 0.0):
     # outputs (x,y,z) with real z as depth, y as height
     # y values are relative to the camera's height
     # orientation (radians) is positive to orient the camera left
@@ -62,14 +61,14 @@ def pixel_to_real(
     return cloud @ rotation_matrix
 
 
-def constrain(points: npt.NDArray, w: int, h: int):
+def constrain(points, w: int, h: int):
     points = points.astype(int)
     valid = (points[:, 0] >= 0) & (points[:, 0] < w) & (
         points[:, 1] >= 0) & (points[:, 1] < h)
     return points[valid]
 
 
-def occupancy_grid(real_pc: npt.NDArray, conf: GridConfiguration):
+def occupancy_grid(real_pc, conf: GridConfiguration):
     width = conf.gw // conf.cw
     height = conf.gh // conf.cw
 
@@ -86,14 +85,14 @@ def occupancy_grid(real_pc: npt.NDArray, conf: GridConfiguration):
     return cnt >= conf.thres
 
 
-def composite(drive_occ: npt.NDArray, block_occ: npt.NDArray):
+def composite(drive_occ, block_occ):
     full = drive_occ & (block_occ != 1)
     full = full.astype(np.uint8) * 255
     full[(block_occ | drive_occ) != 1] = 127
     return full
 
 
-def fast_los_grid(merged: npt.NDArray, iters=10):
+def fast_los_grid(merged, iters=10):
     merged = merged.astype(np.uint8)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, ksize=(2, 2))
     work = merged
@@ -142,7 +141,7 @@ def trace_and_fill(merged, i0, j0, i1, j1):
             j += sj
 
 
-def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
+def create_los_grid(merged, cameras: list[VirtualCamera] = []):
     # merged: 2-d boolean array with 0/255 as known driveable/undriveable
     #         all other values are unknown
     merged = merged.astype(np.uint8)
