@@ -110,7 +110,7 @@ def fast_los_grid(merged: npt.NDArray, iters=10):
 
 
 @njit(cache=True)
-def _trace_and_fill(merged, i0, j0, i1, j1):
+def trace_and_fill(merged, i0, j0, i1, j1):
     # Bresenham walk from (i0,j0) -> (i1,j1)
     di = abs(i1 - i0)
     dj = abs(j1 - j0)
@@ -198,6 +198,6 @@ def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
 
         merged[cam.i, cam.j] = 255
         for end_i, end_j in zip(idx, jdx):
-            _trace_and_fill(merged, cam.i, cam.j, end_i, end_j)
+            trace_and_fill(merged, cam.i, cam.j, end_i, end_j)
 
     return merged

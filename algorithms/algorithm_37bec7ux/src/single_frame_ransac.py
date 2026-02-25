@@ -6,7 +6,8 @@ import time
 import math
 import cv2
 import cProfile as cp
-
+import pstats
+import io
 import ransac.plane
 import ransac.occu
 
@@ -41,6 +42,7 @@ f.close()
 # START
 pr = cp.Profile()
 pr.enable()
+start = time.perf_counter_ns()
 
 cleaned_depths = ransac.plane.clean_depths(raw_depths)
 driveable, ransac_coeffs = ransac.plane.hsv_and_ransac(
@@ -73,10 +75,14 @@ occ_h, occ_w = full_occ.shape
 cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
                            3 * math.pi / 4, math.radians(90))
 
+end = time.perf_counter_ns()
 pr.disable()
 
 los_grid = ransac.occu.create_los_grid(full_occ, [cam]) # IMPORTANT don't profile this, has JIT compile time of 0.5s
 
+s = io.StringIO()
+pstats.Stats(pr, stream=s).strip_dirs().sort_stats("tottime").print_stats(20)
+print(s.getvalue())
 pr.dump_stats("out/single_frame.prof")
 
 # DISPLAY DATA
@@ -86,7 +92,7 @@ print("angle: ", math.degrees(angle))
 
 print("-----")
 
-# print(f"-----\n{1000 * (end - start)} ms per frame")
+print(f"-----\n{(end - start) / 1e6} ms per frame")
 
 # exit()
 
