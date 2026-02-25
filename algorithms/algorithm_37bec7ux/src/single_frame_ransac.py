@@ -5,6 +5,7 @@ import random
 import time
 import math
 import cv2
+import cProfile as cp
 
 import ransac.plane
 import ransac.occu
@@ -38,8 +39,8 @@ image = image[:, 0: int(image.shape[1] / 2)]
 f.close()
 
 # START
-
-start = time.perf_counter()
+pr = cp.Profile()
+pr.enable()
 
 cleaned_depths = ransac.plane.clean_depths(raw_depths)
 driveable, ransac_coeffs = ransac.plane.hsv_and_ransac(
@@ -71,11 +72,12 @@ full_occ = ransac.occu.composite(drive_occ, block_occ)
 occ_h, occ_w = full_occ.shape
 cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
                            3 * math.pi / 4, math.radians(90))
-# remove cam to use morphology technique (faster)
 
-end = time.perf_counter()
+pr.disable()
 
 los_grid = ransac.occu.create_los_grid(full_occ, [cam]) # IMPORTANT don't profile this, has JIT compile time of 0.5s
+
+pr.dump_stats("out/single_frame.prof")
 
 # DISPLAY DATA
 
@@ -84,7 +86,7 @@ print("angle: ", math.degrees(angle))
 
 print("-----")
 
-print(f"-----\n{1000 * (end - start)} ms per frame")
+# print(f"-----\n{1000 * (end - start)} ms per frame")
 
 # exit()
 

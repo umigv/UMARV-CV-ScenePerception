@@ -83,9 +83,7 @@ def occupancy_grid(real_pc: npt.NDArray, conf: GridConfiguration):
     cnt = np.bincount(real_pc[:, 1] * width + real_pc[:, 0])
     cnt = np.resize(cnt, (height, width))
 
-    grid = cnt >= conf.thres
-
-    return grid
+    return cnt >= conf.thres
 
 
 def composite(drive_occ: npt.NDArray, block_occ: npt.NDArray):
