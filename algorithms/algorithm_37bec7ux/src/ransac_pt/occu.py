@@ -5,12 +5,12 @@ import math
 import skimage.draw
 
 
-def _device(cuda: bool):
-    return torch.device("cuda") if cuda and torch.cuda.is_available() else torch.device("cpu")
+def get_device():
+    return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def create_ground_cloud(coords, ransac_coeffs, cuda: bool = False):
-    device = _device(cuda)
+def create_ground_cloud(coords, ransac_coeffs):
+    device = get_device()
 
     coords = torch.as_tensor(coords, dtype=torch.float32, device=device)
     coeffs = torch.as_tensor(ransac_coeffs, dtype=torch.float32, device=device)
@@ -22,8 +22,8 @@ def create_ground_cloud(coords, ransac_coeffs, cuda: bool = False):
     return torch.cat((coords, z), dim=1)
 
 
-def create_point_cloud(mask, depth_map, skip: int = 3, cuda: bool = False):
-    device = _device(cuda)
+def create_point_cloud(mask, depth_map, skip: int = 3):
+    device = get_device()
 
     mask = torch.as_tensor(mask, device=device)
     depth_map = torch.as_tensor(depth_map, device=device)
@@ -38,8 +38,8 @@ def create_point_cloud(mask, depth_map, skip: int = 3, cuda: bool = False):
     return res[::1 + skip]
 
 
-def pixel_to_real(pixel_cloud, real_coeffs, intr, orientation=0.0, cuda: bool = False):
-    device = _device(cuda)
+def pixel_to_real(pixel_cloud, real_coeffs, intr, orientation=0.0):
+    device = get_device()
 
     cloud = pixel_cloud.clone().to(device)
     real_coeffs = torch.as_tensor(real_coeffs, device=device)
@@ -74,8 +74,8 @@ def pixel_to_real(pixel_cloud, real_coeffs, intr, orientation=0.0, cuda: bool = 
     return cloud @ R.T
 
 
-def occupancy_grid(real_pc, conf, cuda: bool = False):
-    device = _device(cuda)
+def occupancy_grid(real_pc, conf):
+    device = get_device()
     real_pc = real_pc.to(device)
 
     width = conf.gw // conf.cw
@@ -105,7 +105,7 @@ def occupancy_grid(real_pc, conf, cuda: bool = False):
 
 
 
-def composite(drive_occ, block_occ, cuda: bool = False):
+def composite(drive_occ, block_occ):
     if isinstance(drive_occ, torch.Tensor):
         drive_occ = drive_occ.detach().cpu().numpy()
     if isinstance(block_occ, torch.Tensor):
@@ -117,7 +117,7 @@ def composite(drive_occ, block_occ, cuda: bool = False):
     return full
 
 
-def constrain(points, w: int, h: int, cuda: bool = False):
+def constrain(points, w: int, h: int):
     if isinstance(points, torch.Tensor):
         pts = points
         valid = (
@@ -134,7 +134,7 @@ def constrain(points, w: int, h: int, cuda: bool = False):
         return points[valid]
 
 
-def fast_los_grid(merged, iters=10, cuda: bool = False):
+def fast_los_grid(merged, iters=10):
     if isinstance(merged, torch.Tensor):
         merged = merged.detach().cpu().numpy()
 
@@ -155,7 +155,7 @@ def fast_los_grid(merged, iters=10, cuda: bool = False):
     return work
 
 
-def create_los_grid(merged, cameras=[], cuda: bool = False):
+def create_los_grid(merged, cameras=[]):
     if isinstance(merged, torch.Tensor):
         merged = merged.detach().cpu().numpy()
 
@@ -163,7 +163,7 @@ def create_los_grid(merged, cameras=[], cuda: bool = False):
     h, w = merged.shape
 
     if len(cameras) == 0:
-        return fast_los_grid(merged, cuda=cuda)
+        return fast_los_grid(merged)
 
     for cam in cameras:
 

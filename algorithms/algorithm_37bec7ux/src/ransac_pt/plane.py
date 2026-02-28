@@ -5,20 +5,20 @@ import random
 import cv2
 
 
-def _device(cuda: bool):
-    return torch.device("cuda") if cuda and torch.cuda.is_available() else torch.device("cpu")
+def get_device():
+    return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def clean_depths(depths, cuda: bool = False):
-    device = _device(cuda)
+def clean_depths(depths):
+    device = get_device()
     depths = torch.as_tensor(depths, dtype=torch.float32, device=device)
     depths = torch.where(torch.isinf(depths) | torch.isnan(depths), -1.0, depths)
     depths = torch.clamp(depths, max=10000.0)
     return depths
 
 
-def pool(depths, kernel: tuple[int, int], cuda: bool = False):
-    device = _device(cuda)
+def pool(depths, kernel: tuple[int, int]):
+    device = get_device()
     depths = depths.to(device)
 
     h, w = depths.shape
@@ -30,37 +30,98 @@ def pool(depths, kernel: tuple[int, int], cuda: bool = False):
     pooled = F.max_pool2d(depths, kernel_size=kernel)
     return pooled.squeeze(0).squeeze(0)
 
-
-def sample(pooled, cuda: bool = False):
-    device = _device(cuda)
+def sample(pooled, batch: int, max_attempts: int = 10):
+    device = pooled.device
     h, w = pooled.shape
 
-    while True:
-        rows = torch.randint(0, h, (3,), device=device)
-        cols = torch.randint(0, w, (3,), device=device)
+    # Allocate outputs
+    A_out = torch.empty((batch, 3, 3), device=device)
+    b_out = torch.empty((batch, 3), device=device)
 
-        valid = pooled[rows, cols] > 0
-        if valid.sum() < 3:
-            continue
+    remaining = torch.arange(batch, device=device)
+
+    attempts = 0
+
+    while remaining.numel() > 0 and attempts < max_attempts:
+        n = remaining.numel()
+
+        rows = torch.randint(0, h, (n, 3), device=device)
+        cols = torch.randint(0, w, (n, 3), device=device)
+
+        vals = pooled[rows, cols]
+
+        valid_depth = (vals > 0).all(dim=1)
+
+        ones = torch.ones((n, 3), device=device)
 
         A = torch.stack([
-            torch.stack([cols[i].float(), rows[i].float(), torch.tensor(1.0, device=device)])
-            for i in range(3)
-        ])
-        if torch.linalg.matrix_rank(A) == 3:
-            b = pooled[rows, cols].float()
-            return A, b
+            cols.float(),
+            rows.float(),
+            ones
+        ], dim=-1)
+
+        det = torch.linalg.det(A)
+        valid_rank = det.abs() > 1e-6
+
+        valid = valid_depth & valid_rank
+
+        if valid.any():
+            idx_valid = remaining[valid]
+            A_out[idx_valid] = A[valid]
+            b_out[idx_valid] = vals[valid].float()
+
+        remaining = remaining[~valid]
+        attempts += 1
+
+    # ---------- FAILSAFE ----------
+    if remaining.numel() > 0:
+        # Deterministic fallback:
+        # pick first 3 valid depth points in image
+
+        valid_mask = pooled > 0
+        ys, xs = torch.nonzero(valid_mask, as_tuple=True)
+
+        if ys.numel() >= 3:
+            rows = ys[:3].unsqueeze(0).repeat(remaining.numel(), 1)
+            cols = xs[:3].unsqueeze(0).repeat(remaining.numel(), 1)
+            vals = pooled[rows, cols]
+
+            ones = torch.ones((remaining.numel(), 3), device=device)
+
+            A = torch.stack([
+                cols.float(),
+                rows.float(),
+                ones
+            ], dim=-1)
+
+            A_out[remaining] = A
+            b_out[remaining] = vals.float()
+        else:
+            # extreme case: almost no valid depth
+            A_out[remaining] = torch.eye(3, device=device)
+            b_out[remaining] = torch.ones((remaining.numel(), 3), device=device)
+
+    return A_out, b_out
 
 
-def plane(A, b, cuda: bool = False):
-    return torch.linalg.lstsq(A, b).solution
+def plane(A, b, eps: float = 1e-6):
+    # Regularize slightly to avoid singular matrix crashes
+    I = torch.eye(3, device=A.device)
+    return torch.linalg.solve(A + eps * I, b.unsqueeze(-1)).squeeze(-1)
 
 
-def metric(pooled, coeffs, tol: float, cuda: bool = False):
-    device = _device(cuda)
+def metric(pooled, coeffs, tol: float):
+
+    device = pooled.device
     pooled = pooled.to(device)
 
-    c1, c2, c3 = coeffs
+    if coeffs.ndim == 1:
+        coeffs = coeffs.unsqueeze(0)
+        squeeze_out = True
+    else:
+        squeeze_out = False
+
+    N = coeffs.shape[0]
     h, w = pooled.shape
 
     ys, xs = torch.meshgrid(
@@ -69,14 +130,25 @@ def metric(pooled, coeffs, tol: float, cuda: bool = False):
         indexing="ij"
     )
 
-    z_pred = c1 * xs + c2 * ys + c3
+    c = coeffs.view(N, 1, 1, 3)
+
+    z_pred = c[..., 0] * xs + c[..., 1] * ys + c[..., 2]
+
     err = torch.abs(z_pred - pooled)
 
-    return torch.count_nonzero((pooled > 0) & (err < tol))
+    valid = (pooled > 0)
+    inliers = valid & (err < tol)
+
+    scores = inliers.sum(dim=(1, 2))
+
+    if squeeze_out:
+        return scores[0]
+
+    return scores
 
 
-def mask(depths, coeffs, tol: float, cuda: bool = False):
-    device = _device(cuda)
+def mask(depths, coeffs, tol: float):
+    device = get_device()
     depths = depths.to(device)
 
     h, w = depths.shape
@@ -97,37 +169,36 @@ def ground_plane(
     iters: int = 60,
     kernel: tuple[int, int] = (1, 16),
     tol: float = 0.12,
-    guess=None,
-    cuda: bool = False
+    guess=None
 ):
-    device = _device(cuda)
+    device = depths.device
 
-    depths = clean_depths(depths, cuda)
+    depths = clean_depths(depths)
     max_depth = depths.max()
     inv_depths = max_depth / depths
 
-    pooled = pool(inv_depths, kernel, cuda)
+    pooled = pool(inv_depths, kernel)
 
-    if guess is None:
-        best_coeffs = torch.zeros(3, device=device)
-    else:
-        best_coeffs = torch.as_tensor(guess, dtype=torch.float32, device=device)
+    A, b = sample(pooled, batch=iters)
 
-    best = metric(pooled, best_coeffs, tol, cuda)
+    coeffs = plane(A, b)
 
-    for _ in range(iters):
-        A, b = sample(pooled, cuda)
-        coeffs = plane(A, b, cuda)
-        score = metric(pooled, coeffs, tol, cuda)
+    scores = metric(pooled, coeffs, tol)
 
-        if score > best:
-            best = score
-            best_coeffs = coeffs
+    if guess is not None:
+        guess = torch.as_tensor(guess, dtype=torch.float32, device=device)
+        guess_score = metric(pooled, guess, tol)
+        coeffs = torch.cat([coeffs, guess.unsqueeze(0)], dim=0)
+        scores = torch.cat([scores, guess_score.unsqueeze(0)], dim=0)
 
+    best_idx = torch.argmax(scores)
+    best_coeffs = coeffs[best_idx]
+
+    best_coeffs = best_coeffs.clone()
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]
 
-    res = mask(inv_depths, best_coeffs, tol, cuda)
+    res = mask(inv_depths, best_coeffs, tol)
 
     return res, best_coeffs / max_depth
 
