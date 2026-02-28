@@ -403,13 +403,13 @@ def main():
                     print("Grab error:", err)
                     continue
 
-                cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
-                cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+                cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
+                cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
 
                 t_grab += (time.perf_counter() - t0)
 
-                image = image_mats[i].get_data()
-                depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+                image = image_mats[i].get_data(sl.MEM.GPU)
+                depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl.MEM.GPU))
 
                 t0 = time.perf_counter()
 
