@@ -222,16 +222,16 @@ class CameraMergeUI:
         return bar
 
     def _draw_profile_bar(self, width):
-        h = 50
+        h = 30
         bar = np.ones((h, width, 3), dtype=np.uint8) * 26
 
         cv2.putText(
             bar,
             self._profile_text,
-            (20, 32),
+            (20, 20),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.4,
-            (245, 245, 245),
+            (200, 200, 200),
             1,
             cv2.LINE_AA
         )
@@ -539,11 +539,11 @@ def main():
         total_time = time.perf_counter() - frame_start
 
         profile_text = (
-            f"Grab:{t_grab*1000:5.1f}ms | "
-            f"RANSAC:{t_ransac*1000:5.1f}ms | "
-            f"Occ:{t_occ*1000:5.1f}ms | "
-            f"Merge:{t_merge*1000:5.1f}ms | "
-            f"Total:{total_time*1000:5.1f}ms"
+            f"Grab: {t_grab*1000:5.1f}ms | "
+            f"RANSAC: {t_ransac*1000:5.1f}ms | "
+            f"Occ: {t_occ*1000:5.1f}ms | "
+            f"Merge: {t_merge*1000:5.1f}ms | "
+            f"Total: {total_time*1000:5.1f}ms"
         )
 
         ui.render(
