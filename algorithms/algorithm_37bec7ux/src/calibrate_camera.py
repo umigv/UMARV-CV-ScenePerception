@@ -13,11 +13,15 @@ import cv2
 import numpy as np
 import math
 import os
+import time
+import torch
 
 import pyzed.sl as sl
-import ransac.plane
-import ransac.occu
+import ransac_pt as ransac
+import ransac_pt.plane
+import ransac_pt.occu
 
+# torch.cuda.is_available = lambda: False # force CPU
 
 
 
@@ -31,6 +35,10 @@ class CameraMergeUI:
         cv2.resizeWindow(self.window_name, 1800, 1250)
 
         self.pause = False
+
+        self._times = []
+        self._fps = 0.0
+        self._profile_text = ""
 
     def _draw_centered_text(self, img, text, y, scale=0.45, color=(220, 220, 220)):
         (tw, _), _ = cv2.getTextSize(
@@ -62,7 +70,6 @@ class CameraMergeUI:
             color=title_color
         )
 
-        # Resize image to fit panel
         img_resized = cv2.resize(img, (self.panel_size - 52, self.panel_size - 52))
         
         h, w = img_resized.shape[:2]
@@ -165,6 +172,25 @@ class CameraMergeUI:
             color=(245, 245, 245)
         )
 
+        fps_text = f"{self._fps:.1f} FPS"
+        (tw, _), _ = cv2.getTextSize(
+            fps_text,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            1
+        )
+
+        cv2.putText(
+            bar,
+            fps_text,
+            (width - tw - 20, 38),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (180, 220, 255),
+            1,
+            cv2.LINE_AA
+        )
+
         return bar
 
     def _draw_controls_bar(self, width, angle, displacement, z_offset):
@@ -195,6 +221,22 @@ class CameraMergeUI:
 
         return bar
 
+    def _draw_profile_bar(self, width):
+        h = 50
+        bar = np.ones((h, width, 3), dtype=np.uint8) * 26
+
+        cv2.putText(
+            bar,
+            self._profile_text,
+            (20, 32),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.4,
+            (245, 245, 245),
+            1,
+            cv2.LINE_AA
+        )
+        return bar
+
     def render(
         self,
         occ1,
@@ -205,8 +247,22 @@ class CameraMergeUI:
         z_offset,
         current_score=0,
         best_score=0,
-        best_params=None
+        best_params=None,
+        profile_text=""
     ):
+        
+        now = time.time()
+        self._profile_text = profile_text
+        self._times.append(now)
+
+        if len(self._times) > 60:
+            self._times = self._times[-60:]
+
+        if len(self._times) > 1:
+            self._fps = (len(self._times) - 1) / (self._times[-1] - self._times[0])
+        else:
+            self._fps = 0
+            
         occ_row = np.hstack([
             self._make_panel("Camera 1 - Occ", self._colorize_grid(occ1), (255, 120, 120)),
             self._make_panel("Camera 2 - Occ", self._colorize_grid(occ2), (120, 255, 120)),
@@ -224,12 +280,14 @@ class CameraMergeUI:
         camera_view = np.hstack([cam_top_view, score_view])
 
         controls = self._draw_controls_bar(width, angle, displacement, z_offset)
+        profile_bar = self._draw_profile_bar(width)
 
         dashboard = np.vstack([
             title_bar,
             occ_row,
             camera_view,
-            controls
+            controls,
+            profile_bar
         ])
 
         cv2.imshow(self.window_name, dashboard)
@@ -326,12 +384,20 @@ def main():
     was_paused = False
 
     while True:
+        frame_start = time.perf_counter()
+
+        t_grab = 0.0
+        t_ransac = 0.0
+        t_occ = 0.0
+        t_merge = 0.0
 
         occ_grids = []
 
         for i in range(2):
 
             if not ui.pause:
+                t0 = time.perf_counter()
+
                 err = cams[i].grab(runtime)
                 if err != sl.ERROR_CODE.SUCCESS:
                     print("Grab error:", err)
@@ -340,8 +406,12 @@ def main():
                 cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
                 cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
 
+                t_grab += (time.perf_counter() - t0)
+
                 image = image_mats[i].get_data()
                 depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+
+                t0 = time.perf_counter()
 
                 ransac_output, px_coeffs_cache[i] = ransac.plane.ground_plane(
                     depths,
@@ -352,6 +422,8 @@ def main():
                 )
 
                 real_coeffs = ransac.plane.real_coeffs(px_coeffs_cache[i], intr[i])
+
+                t_ransac += (time.perf_counter() - t0)
 
                 drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
                 block_ppc = ransac.occu.create_point_cloud(
@@ -364,6 +436,8 @@ def main():
 
             else:
                 if last_drive_ppc[i] is None or last_block_ppc[i] is None or last_real_coeffs[i] is None:
+                    t0 = time.perf_counter()
+                    
                     err = cams[i].grab(runtime)
                     if err != sl.ERROR_CODE.SUCCESS:
                         print("Grab error during pause-init:", err)
@@ -371,9 +445,13 @@ def main():
 
                     cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
                     cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+                    
+                    t_grab += (time.perf_counter() - t0)
 
                     image = image_mats[i].get_data()
                     depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+
+                    t0 = time.perf_counter()
 
                     ransac_output, px_coeffs_cache[i] = ransac.plane.ground_plane(
                         depths,
@@ -384,6 +462,9 @@ def main():
                     )
 
                     last_real_coeffs[i] = ransac.plane.real_coeffs(px_coeffs_cache[i], intr[i])
+                    
+                    t_ransac += (time.perf_counter() - t0)
+
                     last_drive_ppc[i] = ransac.occu.create_point_cloud(ransac_output, depths)
                     last_block_ppc[i] = ransac.occu.create_point_cloud(
                         ransac_output != 1, depths
@@ -395,6 +476,8 @@ def main():
             half_angle_rad = np.deg2rad(angle_deg / 2)
             half_displacement_mm = displacement_cm * 10 / 2
             half_z_offset_mm = z_offset_cm * 10 / 2
+
+            t0 = time.perf_counter()
 
             drive_rpc = ransac.occu.pixel_to_real(
                 last_drive_ppc[i],
@@ -418,6 +501,8 @@ def main():
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
 
             full_occ = ransac.occu.composite(drive_occ, block_occ)
+            
+            t_occ += (time.perf_counter() - t0)
 
             occ_grids.append(full_occ)
 
@@ -427,12 +512,16 @@ def main():
         occ1 = occ_grids[0]
         occ2 = occ_grids[1]
 
+        t0 = time.perf_counter()
+
         merged_occ = (occ1.astype(np.int32) + occ2.astype(np.int32)) // 2
         merged_occ = np.where(
             merged_occ > 127,
             255,
             np.where(merged_occ < 127, 0, 127)
         ).astype(np.uint8)
+        
+        t_merge += (time.perf_counter() - t0)
 
         if ui.pause:
             if not was_paused:
@@ -447,6 +536,16 @@ def main():
             current_score = 0
             best_score = 0
 
+        total_time = time.perf_counter() - frame_start
+
+        profile_text = (
+            f"Grab:{t_grab*1000:5.1f}ms | "
+            f"RANSAC:{t_ransac*1000:5.1f}ms | "
+            f"Occ:{t_occ*1000:5.1f}ms | "
+            f"Merge:{t_merge*1000:5.1f}ms | "
+            f"Total:{total_time*1000:5.1f}ms"
+        )
+
         ui.render(
             occ1=occ1,
             occ2=occ2,
@@ -456,7 +555,8 @@ def main():
             z_offset=z_offset_cm,
             current_score=current_score,
             best_score=best_score,
-            best_params=best_params if ui.pause else None
+            best_params=best_params if ui.pause else None,
+            profile_text=profile_text
         )
 
         key, angle_deg, displacement_cm, z_offset_cm = ui.handle_keyboard(
