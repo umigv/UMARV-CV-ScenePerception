@@ -1,1 +1,3 @@
 pyvenv/
+.venv/
+out/

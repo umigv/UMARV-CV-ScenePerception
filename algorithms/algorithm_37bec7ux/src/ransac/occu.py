@@ -1,20 +1,19 @@
 # ground plane mask to occupancy grid
 
+from numba import njit
 from ransac import *
 
 import ransac.plane
 
 import numpy as np
-import numpy.typing as npt
 import cv2
-import skimage
 
 import math
 
 # TODO: create a tool to tune grid paramters (scale, rotation, translation) in real time (or on a recording)
 
 
-def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
+def create_ground_cloud(coords, ransac_coeffs):
     # coords is a Nx2 numpy array containing coordinates (x, y)
     # pass pixel coefficients
 
@@ -25,7 +24,7 @@ def create_ground_cloud(coords: npt.NDArray, ransac_coeffs: npt.NDArray):
     return np.concatenate((coords.astype(np.float64), z), axis=1)
 
 
-def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3):
+def create_point_cloud(mask, depth_map, skip: int = 3):
     coords = np.argwhere(mask).astype(np.int64)
     coords[:, [0, 1]] = coords[:, [1, 0]]  # (row, col) -> (x, y)
     depths = depth_map[coords[:, 1], coords[:, 0]].reshape(-1, 1)
@@ -35,7 +34,7 @@ def create_point_cloud(mask: npt.NDArray, depth_map: npt.NDArray, skip: int = 3)
 
 
 def pixel_to_real(
-        pixel_cloud: npt.NDArray, real_coeffs: npt.NDArray, intr: Intrinsics, orientation: float = 0.0):
+        pixel_cloud, real_coeffs, intr: Intrinsics, orientation: float = 0.0):
     # outputs (x,y,z) with real z as depth, y as height
     # y values are relative to the camera's height
     # orientation (radians) is positive to orient the camera left
@@ -62,14 +61,14 @@ def pixel_to_real(
     return cloud @ rotation_matrix
 
 
-def constrain(points: npt.NDArray, w: int, h: int):
+def constrain(points, w: int, h: int):
     points = points.astype(int)
     valid = (points[:, 0] >= 0) & (points[:, 0] < w) & (
         points[:, 1] >= 0) & (points[:, 1] < h)
     return points[valid]
 
 
-def occupancy_grid(real_pc: npt.NDArray, conf: GridConfiguration):
+def occupancy_grid(real_pc, conf: GridConfiguration):
     width = conf.gw // conf.cw
     height = conf.gh // conf.cw
 
@@ -83,19 +82,17 @@ def occupancy_grid(real_pc: npt.NDArray, conf: GridConfiguration):
     cnt = np.bincount(real_pc[:, 1] * width + real_pc[:, 0])
     cnt = np.resize(cnt, (height, width))
 
-    grid = cnt >= conf.thres
-
-    return grid
+    return cnt >= conf.thres
 
 
-def composite(drive_occ: npt.NDArray, block_occ: npt.NDArray):
+def composite(drive_occ, block_occ):
     full = drive_occ & (block_occ != 1)
     full = full.astype(np.uint8) * 255
     full[(block_occ | drive_occ) != 1] = 127
     return full
 
 
-def fast_los_grid(merged: npt.NDArray, iters=10):
+def fast_los_grid(merged, iters=10):
     merged = merged.astype(np.uint8)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, ksize=(2, 2))
     work = merged
@@ -111,7 +108,40 @@ def fast_los_grid(merged: npt.NDArray, iters=10):
     return work
 
 
-def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
+@njit(cache=True)
+def trace_and_fill(merged, i0, j0, i1, j1):
+    # Bresenham walk from (i0,j0) -> (i1,j1)
+    di = abs(i1 - i0)
+    dj = abs(j1 - j0)
+    si = 1 if i0 < i1 else -1
+    sj = 1 if j0 < j1 else -1
+    err = di - dj
+
+    i, j = i0, j0
+    state = 255
+
+    while True:
+        v = merged[i, j]
+        if v == 0:
+            state = 0
+        elif v == 255:
+            state = 255
+        else:
+            merged[i, j] = state
+
+        if i == i1 and j == j1:
+            break
+
+        e2 = err + err
+        if e2 > -dj:
+            err -= dj
+            i += si
+        if e2 < di:
+            err += di
+            j += sj
+
+
+def create_los_grid(merged, cameras: list[VirtualCamera] = []):
     # merged: 2-d boolean array with 0/255 as known driveable/undriveable
     #         all other values are unknown
     merged = merged.astype(np.uint8)
@@ -132,21 +162,21 @@ def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
         x1, y1 = cam.j + int(dx1 * r), cam.i + int(dy1 * r)
 
         # restrict x
-        nx0, nx1 = np.clip((x0, x1), 0, w - 1)
+        nx0 = np.clip(x0, 0, w-1)
+        nx1 = np.clip(x1, 0, w-1)
         y0 += (nx0 - x0) * dy0 / dx0
         x0 = nx0
         y1 += (nx1 - x1) * dy1 / dx1
         x1 = nx1
 
         # restrict y
-        ny0, ny1 = np.clip((y0, y1), 0, h - 1)
+        ny0 = np.clip(y0, 0, h-1)
+        ny1 = np.clip(y1, 0, h-1)
         x0 += (ny0 - y0) * dx0 / dy0
         y0 = ny0
         x1 += (ny1 - y1) * dx1 / dy1
         y1 = ny1
 
-        x0, x1 = np.clip((x0, x1), 0, w - 1)
-        y0, y1 = np.clip((y0, y1), 0, h - 1)
         x0, x1, y0, y1 = int(x0), int(x1), int(y0), int(y1)
 
         idx, jdx = [], []
@@ -167,14 +197,6 @@ def create_los_grid(merged: npt.NDArray, cameras: list[VirtualCamera] = []):
 
         merged[cam.i, cam.j] = 255
         for end_i, end_j in zip(idx, jdx):
-            state = 255
-            line = skimage.draw.line(cam.i, cam.j, end_i, end_j)
-            for p in range(len(line[0])):
-                if merged[line[0][p], line[1][p]] == 0:
-                    state = 0
-                elif merged[line[0][p], line[1][p]] == 255:
-                    state = 255
-                else:
-                    merged[line[0][p], line[1][p]] = state
+            trace_and_fill(merged, cam.i, cam.j, end_i, end_j)
 
     return merged

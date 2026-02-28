@@ -6,8 +6,6 @@ import random
 import math
 
 import numpy as np
-import numpy.typing as npt
-import skimage
 import cv2
 
 
@@ -17,13 +15,14 @@ def pool(depths, kernel: tuple[int, int]):
     h -= h % kernel[0]
     depths = depths[:h, :w]
     # remove influence of -1 values that plague np.mean
-    return skimage.measure.block_reduce(depths, kernel, np.max)
+    return depths[:h, :w].reshape(h//kernel[0], kernel[0], w//kernel[1], kernel[1]).max(axis=(1, 3))
 
 
 def sample(pooled):
     h, w = pooled.shape
     A = np.zeros((3, 3))
     b = np.zeros(3)
+
     while True:
         for i in range(3):
             row = -1
@@ -45,18 +44,26 @@ def plane(A, b):
 def metric(pooled, coeffs, tol: float):
     c1, c2, c3 = coeffs
     h, w = pooled.shape
-    ys, xs = np.indices((h, w))
-    z_pred = c1 * xs + c2 * ys + c3
-    err = np.abs(z_pred - pooled)
-    return np.count_nonzero((pooled > 0) & (err < tol))
+
+    x = np.arange(w, dtype=pooled.dtype)[None, :]
+    y = np.arange(h, dtype=pooled.dtype)[:, None]
+
+    r = c1 * x + c2 * y
+    r += c3
+    r -= pooled
+    np.abs(r, out=r)
+
+    return np.count_nonzero((pooled > 0) & (r < tol))
 
 
 def mask(depths, coeffs, tol: float):
     h, w = depths.shape
-    X, Y = np.meshgrid(np.arange(w), np.arange(h))
     c1, c2, c3 = coeffs
-    Z = pow(c1 * X + c2 * Y + c3 - depths, 2)
-    return (depths > 0) & (Z < tol)
+
+    x = np.arange(w, dtype=depths.dtype)[None, :]
+    y = np.arange(h, dtype=depths.dtype)[:, None]
+    r = (c1 * x + c2 * y + c3) - depths
+    return (depths > 0) & (r * r < tol)
 
 
 def clean_depths(depths):
@@ -68,6 +75,7 @@ def clean_depths(depths):
 # will maintain the dimensions of the original
 def ground_plane(
         depths, iters: int = 60, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, guess: np.ndarray = np.array([0.0, 0.0, 0.0])):
+    # TODO: if depths is all invalid, short circuit
 
     depths = clean_depths(depths)
     max_depth = float(depths.max())
@@ -78,13 +86,12 @@ def ground_plane(
     best_coeffs = guess.astype(float)
     if guess.shape != (3,):
         print("warning: invalid plane coefficient estimates")
-        best_coeffs= np.array([0.0, 0.0, 0.0])
+        best_coeffs = np.array([0.0, 0.0, 0.0])
     else:
         best_coeffs *= float(max_depth)
         best_coeffs[0] *= float(kernel[1])
         best_coeffs[1] *= float(kernel[0])
     best = metric(pooled, best_coeffs, tol)
-
 
     for _ in range(iters):
         A, b = sample(pooled)
