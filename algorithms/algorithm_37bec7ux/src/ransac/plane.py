@@ -5,6 +5,7 @@ from ransac import *
 import random
 import math
 
+from multiprocessing import Pool, Process
 import numpy as np
 import cv2
 
@@ -14,8 +15,7 @@ def pool(depths, kernel: tuple[int, int]):
     w -= w % kernel[1]
     h -= h % kernel[0]
     depths = depths[:h, :w]
-    # remove influence of -1 values that plague np.mean
-    return depths[:h, :w].reshape(h//kernel[0], kernel[0], w//kernel[1], kernel[1]).max(axis=(1, 3))
+    return np.nanmean(depths[:h, :w].reshape(h//kernel[0], kernel[0], w//kernel[1], kernel[1]), axis=(1, 3))
 
 
 def sample(pooled):
@@ -41,19 +41,19 @@ def plane(A, b):
     return np.linalg.lstsq(A, b, rcond=None)[0]
 
 
-def metric(pooled, coeffs, tol: float):
+def metric(depths, coeffs, tol: float):
     c1, c2, c3 = coeffs
-    h, w = pooled.shape
+    h, w = depths.shape
 
-    x = np.arange(w, dtype=pooled.dtype)[None, :]
-    y = np.arange(h, dtype=pooled.dtype)[:, None]
+    x = np.arange(w, dtype=depths.dtype)[None, :]
+    y = np.arange(h, dtype=depths.dtype)[:, None]
 
     r = c1 * x + c2 * y
     r += c3
-    r -= pooled
+    r -= depths
     np.abs(r, out=r)
 
-    return np.count_nonzero((pooled > 0) & (r < tol))
+    return np.count_nonzero((depths > 0) & (r < tol))
 
 
 def mask(depths, coeffs, tol: float):
@@ -67,18 +67,30 @@ def mask(depths, coeffs, tol: float):
 
 
 def clean_depths(depths):
-    depths = np.where(np.isinf(depths) | np.isnan(depths), -1, depths)
-    depths = np.where(depths > 10000, 10000, depths)
+    depths = np.where(depths > 10000, np.nan, depths)
     return depths
 
 
-# will maintain the dimensions of the original
-def ground_plane(
-        depths, iters: int = 60, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, guess: np.ndarray = np.array([0.0, 0.0, 0.0])):
-    # TODO: if depths is all invalid, short circuit
+def _ground_plane(args):
+    print(args)
+    pooled, tol, times = args
+    res = None
+    best = 0
+    for _ in range(times):
+        coeffs = plane(*sample(pooled))
+        score = metric(pooled, coeffs, tol)
+        if score > best:
+            res = coeffs
+            best = score
+    return best, res
 
+
+def ground_plane(
+        depths, samples: int = 100, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, guess: np.ndarray = np.array([0.0, 0.0, 0.0])):
     depths = clean_depths(depths)
-    max_depth = float(depths.max())
+    max_depth = float(np.nanmax(depths))
+    if max_depth is math.nan:
+        return np.zeros_like(depths), guess
     inv_depths = max_depth / depths
 
     pooled = pool(inv_depths, kernel)
@@ -92,14 +104,13 @@ def ground_plane(
         best_coeffs[0] *= float(kernel[1])
         best_coeffs[1] *= float(kernel[0])
     best = metric(pooled, best_coeffs, tol)
-
-    for _ in range(iters):
-        A, b = sample(pooled)
-        coeffs = plane(A, b)
-        score = metric(pooled, coeffs, tol)
-        if score > best:
-            best = score
-            best_coeffs = coeffs
+    
+    processes = 1
+    args = (pooled, tol, samples // processes)
+    run_best, run_coeffs = _ground_plane(args)
+    
+    if run_best > best:
+        best_coeffs = run_coeffs
 
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]

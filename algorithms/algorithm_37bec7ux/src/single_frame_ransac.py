@@ -20,22 +20,26 @@ iters = 100
 kernel = (1, 16)  # kernel is rows, columns
 tolerance = 0.1
 
-# INPUT FILTERING (@the2nake)
+# INPUT FILTERING
 
 f = h5py.File(filename, "r")
-# print(list(f.keys()))
 frames = len(f["depth_maps"])
+
 if frame_number < 0:
     frame_number = random.randint(1, frames - 2)
-    print(f"Using randomised frame number: {frame_number}")
 elif frame_number >= frames:
     frame_number = frames - 1
-
 
 raw_depths = f["depth_maps"][frame_number]
 depth_map = f["depth_maps"][frame_number]
 image = f["images"][frame_number]
 image = image[:, 0: int(image.shape[1] / 2)]
+
+print()
+print("testing on:", filename)
+print(".hdf5 keys:", list(f.keys()))
+print(f"using frame number: {frame_number}")
+print("\n----- start -----\n")
 
 f.close()
 
@@ -89,17 +93,15 @@ pr.disable()
 
 s = io.StringIO()
 pstats.Stats(pr, stream=s).strip_dirs().sort_stats("tottime").print_stats(20)
-print(s.getvalue())
+# print(s.getvalue())
 pr.dump_stats("out/single_frame.prof")
 
 # DISPLAY DATA
 
+print(f"\n----- {(end - start) / 1e6:.3f} ms -----\n")
+
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
-
-print("-----")
-
-print(f"-----\n{(end - start) / 1e6} ms per frame")
 
 # exit()
 
