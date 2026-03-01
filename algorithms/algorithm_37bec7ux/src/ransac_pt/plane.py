@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import math
 import random
 import cv2
+import numpy as np
 
 
 def get_device():
@@ -163,15 +164,16 @@ def mask(depths, coeffs, tol: float):
 
     return (depths > 0) & (Z < tol)
 
-
 def ground_plane(
     depths,
     iters: int = 60,
     kernel: tuple[int, int] = (1, 16),
     tol: float = 0.12,
-    guess=None
+    guess=np.array([0.0, 0.0, 0.0])
 ):
     device = depths.device
+
+    guess = torch.as_tensor(guess, dtype=torch.float32, device=device)
 
     depths = clean_depths(depths)
     max_depth = depths.max()
@@ -180,16 +182,18 @@ def ground_plane(
     pooled = pool(inv_depths, kernel)
 
     A, b = sample(pooled, batch=iters)
-
     coeffs = plane(A, b)
 
     scores = metric(pooled, coeffs, tol)
 
-    if guess is not None:
-        guess = torch.as_tensor(guess, dtype=torch.float32, device=device)
-        guess_score = metric(pooled, guess, tol)
-        coeffs = torch.cat([coeffs, guess.unsqueeze(0)], dim=0)
-        scores = torch.cat([scores, guess_score.unsqueeze(0)], dim=0)
+    guess_scaled = guess.clone()
+    guess_scaled *= max_depth
+    guess_scaled[0] *= kernel[1]
+    guess_scaled[1] *= kernel[0]
+
+    guess_score = metric(pooled, guess_scaled, tol)
+    coeffs = torch.cat([coeffs, guess_scaled.unsqueeze(0)], dim=0)
+    scores = torch.cat([scores, guess_score.unsqueeze(0)], dim=0)
 
     best_idx = torch.argmax(scores)
     best_coeffs = coeffs[best_idx]
