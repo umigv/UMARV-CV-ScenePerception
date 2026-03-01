@@ -7,18 +7,21 @@ import math
 import cv2
 import cProfile as cp
 import pstats
+from multiprocessing import Pool
 import io
-import ransac.plane
-import ransac.occu
+
+from ransac import *
+from ransac import plane, occu
 
 # PARAMETERS
 
 filename = "res/perspective_test.svo2.hdf5"
 frame_number = -1
 
-iters = 100
+samples = 100
 kernel = (1, 16)  # kernel is rows, columns
 tolerance = 0.1
+processes = 8
 
 # INPUT FILTERING
 
@@ -43,23 +46,25 @@ print("\n----- start -----\n")
 
 f.close()
 
+pool = Pool(processes) if processes > 0 else None
+
 # START
 pr = cp.Profile()
 pr.enable()
 start = time.perf_counter_ns()
 
-cleaned_depths = ransac.plane.clean_depths(raw_depths)
-driveable, ransac_coeffs = ransac.plane.hsv_and_ransac(
-    image, cleaned_depths, iters, kernel, tolerance
-)
+depths = plane.clean_depths(raw_depths)
+driveable, ransac_coeffs = plane.hsv_and_ransac(
+    image, depths, samples, kernel, tolerance, np.array([0, 0, 0]), pool, processes)
+
 ransac_output = driveable  # [100:, :]
 
 fx = 360
 
 h, w = depth_map.shape
-intrinsics = ransac.Intrinsics(w / 2, h / 2, fx, fx)
-real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
-angle = ransac.plane.real_angle(real)
+intrinsics = Intrinsics(w / 2, h / 2, fx, fx)
+real = plane.real_coeffs(ransac_coeffs, intrinsics)
+angle = plane.real_angle(real)
 
 # drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
 # drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics, math.pi/4)
@@ -81,9 +86,9 @@ angle = ransac.plane.real_angle(real)
 
 # TEST NEW OCCUPANCY GRID
 # start = time.perf_counter_ns()
-conf = ransac.GridConfiguration(5000, 5000, 50)
-full_occ = ransac.occu.oneshot(
-    ransac_output, real, intrinsics, conf, math.radians(45), (0, 50, 100, 100))
+conf = GridConfiguration(5000, 5000, 50)
+occ = occu.oneshot(
+    ransac_output, real, intrinsics, conf, math.pi / 4, (0, 50, 100, 100))
 
 end = time.perf_counter_ns()
 pr.disable()
@@ -108,7 +113,7 @@ print("angle: ", math.degrees(angle))
 # PLOT THINGS
 
 
-def show_pc(axes, cloud, conf: ransac.GridConfiguration, name: str = "point cloud"):
+def show_pc(axes, cloud, conf: GridConfiguration, name: str = "point cloud"):
     axes.set_title(name)
     axes.scatter(cloud[:, 0], cloud[:, 2], s=0.01)
     axes.set_aspect("equal", adjustable="box")
@@ -123,7 +128,7 @@ def bool_to_bgr(mat):
 f, ax = plt.subplots(3, 2)
 
 ransac_output = ransac_output.astype(np.uint8) * 255
-full_occ = cv2.cvtColor(full_occ, cv2.COLOR_GRAY2BGR)
+occ = cv2.cvtColor(occ, cv2.COLOR_GRAY2BGR)
 
 ax[0][0].set_title("original image")
 ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
@@ -135,7 +140,7 @@ ax[0][1].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
 # show_pc(ax[1][1], block_rpc, drive_conf, "obstacle cloud")
 
 ax[2][0].set_title("bilinear interp (2 ms)")
-ax[2][0].imshow(full_occ)
+ax[2][0].imshow(occ)
 ax[2][1].set_title("line of sight (25 ms)")
 # ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
 

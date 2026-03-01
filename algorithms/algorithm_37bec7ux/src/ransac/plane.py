@@ -5,7 +5,8 @@ from ransac import *
 import random
 import math
 
-from multiprocessing import Pool, Process
+from multiprocessing import Pool
+import warnings
 import numpy as np
 import cv2
 
@@ -14,7 +15,7 @@ def pool(depths, kernel: tuple[int, int]):
     h, w = depths.shape
     w -= w % kernel[1]
     h -= h % kernel[0]
-    depths = depths[:h, :w]
+    warnings.simplefilter("ignore", category=RuntimeWarning)
     return np.nanmean(depths[:h, :w].reshape(h//kernel[0], kernel[0], w//kernel[1], kernel[1]), axis=(1, 3))
 
 
@@ -71,9 +72,7 @@ def clean_depths(depths):
     return depths
 
 
-def _ground_plane(args):
-    print(args)
-    pooled, tol, times = args
+def _ground_plane(pooled, tol, times):
     res = None
     best = 0
     for _ in range(times):
@@ -84,9 +83,9 @@ def _ground_plane(args):
             best = score
     return best, res
 
-
+# TODO: make this handle multiple depth frames
 def ground_plane(
-        depths, samples: int = 100, kernel: tuple[int, int] = (1, 16), tol: float = 0.12, guess: np.ndarray = np.array([0.0, 0.0, 0.0])):
+        depths, samples = 100, kernel = (1, 16), tol = 0.12, guess = np.array([0.0, 0.0, 0.0]), thread_pool = None, processes = 4):
     depths = clean_depths(depths)
     max_depth = float(np.nanmax(depths))
     if max_depth is math.nan:
@@ -104,13 +103,16 @@ def ground_plane(
         best_coeffs[0] *= float(kernel[1])
         best_coeffs[1] *= float(kernel[0])
     best = metric(pooled, best_coeffs, tol)
-    
-    processes = 1
-    args = (pooled, tol, samples // processes)
-    run_best, run_coeffs = _ground_plane(args)
-    
-    if run_best > best:
-        best_coeffs = run_coeffs
+
+    if thread_pool is None:
+        run_best, run_coeffs = _ground_plane(pooled, tol, samples)
+        if run_best > best:
+            best_coeffs = run_coeffs
+    else:
+        args = (pooled, tol, samples // processes)
+        results = thread_pool.starmap(
+            _ground_plane, [args for _ in range(processes)])
+        _, best_coeffs = max(results, key=lambda t: t[0])
 
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]
