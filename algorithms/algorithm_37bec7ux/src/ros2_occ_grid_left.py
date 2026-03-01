@@ -125,7 +125,7 @@ def main():
 
     init = sl.InitParameters()
     # Set configuration parameters for the ZED
-    init.set_from_serial_number(36466710) #change based on left camera serial
+    init.set_from_serial_number(36466710)  # change based on left camera serial
     init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
     # This parameter can be used to record SVO in camera FPS even if  the grab loop is running at a lower FPS (due to compute for ex.)

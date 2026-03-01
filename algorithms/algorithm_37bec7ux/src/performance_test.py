@@ -49,7 +49,7 @@ def main():
     print("Running... press q to quit")
 
     prev_time = time.time()
-    
+
     while True:
         occ_grids = []
 
@@ -75,8 +75,10 @@ def main():
 
             # ---------------- Depth Retrieval ----------------
             start_depth.record()
-            cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
-            depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl.MEM.GPU))
+            cams[i].retrieve_measure(
+                depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
+            depths = ransac.plane.clean_depths(
+                depth_mats[i].get_data(sl.MEM.GPU))
             end_depth.record()
 
             # ---------------- Plane RANSAC ----------------

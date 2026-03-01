@@ -104,7 +104,6 @@ def occupancy_grid(real_pc, conf):
     return grid
 
 
-
 def composite(drive_occ, block_occ):
     if isinstance(drive_occ, torch.Tensor):
         drive_occ = drive_occ.detach().cpu().numpy()
