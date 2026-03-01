@@ -57,29 +57,35 @@ intrinsics = ransac.Intrinsics(w / 2, h / 2, fx, fx)
 real = ransac.plane.real_coeffs(ransac_coeffs, intrinsics)
 angle = ransac.plane.real_angle(real)
 
-drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
-drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics, math.pi/4)
+# drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
+# drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics, math.pi/4)
 
-block_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
-block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics, math.pi/4)
+# block_ppc = ransac.occu.create_point_cloud(driveable != 1, cleaned_depths)
+# block_rpc = ransac.occu.pixel_to_real(block_ppc, real, intrinsics, math.pi/4)
 
-drive_conf = ransac.GridConfiguration(
-    5000, 5000, 50, thres=2)  # in millimetres
-block_conf = ransac.GridConfiguration(
-    5000, 5000, 50, thres=1)  # in millimetres
-drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
-block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-full_occ = ransac.occu.composite(drive_occ, block_occ)
+# drive_conf = ransac.GridConfiguration(
+#     5000, 5000, 50, thres=2)  # in millimetres
+# block_conf = ransac.GridConfiguration(
+#     5000, 5000, 50, thres=1)  # in millimetres
+# drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
+# block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
+# full_occ = ransac.occu.composite(drive_occ, block_occ)
 
-occ_h, occ_w = full_occ.shape
-cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
-                           3 * math.pi / 4, math.radians(90))
+# occ_h, occ_w = full_occ.shape
+# cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
+#                            3 * math.pi / 4, math.radians(90))
+
+# TEST NEW OCCUPANCY GRID
+# start = time.perf_counter_ns()
+conf = ransac.GridConfiguration(5000, 5000, 50)
+full_occ = ransac.occu.oneshot(
+    ransac_output, real, intrinsics, conf, math.radians(45), (0, 50, 100, 100))
 
 end = time.perf_counter_ns()
 pr.disable()
 
 # IMPORTANT don't profile this, has JIT compile time of 0.5s
-los_grid = ransac.occu.create_los_grid(full_occ, [cam])
+# los_grid = ransac.occu.create_los_grid(full_occ, [cam])
 
 s = io.StringIO()
 pstats.Stats(pr, stream=s).strip_dirs().sort_stats("tottime").print_stats(20)
@@ -123,13 +129,13 @@ ax[0][0].imshow(image[:, :, [2, 1, 0]])  # [100:, :, [2, 1, 0]])
 ax[0][1].set_title("segmented (ransac + hsv)")
 ax[0][1].imshow(cv2.cvtColor(ransac_output, cv2.COLOR_GRAY2RGB))
 
-show_pc(ax[1][0], drive_rpc, drive_conf, "driveable cloud")
-show_pc(ax[1][1], block_rpc, drive_conf, "obstacle cloud")
+# show_pc(ax[1][0], drive_rpc, drive_conf, "driveable cloud")
+# show_pc(ax[1][1], block_rpc, drive_conf, "obstacle cloud")
 
-ax[2][0].set_title("merged area")
+ax[2][0].set_title("bilinear interp (2 ms)")
 ax[2][0].imshow(full_occ)
-ax[2][1].set_title("line of sight")
-ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
+ax[2][1].set_title("line of sight (25 ms)")
+# ax[2][1].imshow(cv2.cvtColor(los_grid, cv2.COLOR_GRAY2BGR))
 
 plt.show()
 
