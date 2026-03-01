@@ -229,8 +229,8 @@ def oneshot(mask, real_coeffs, intr: Intrinsics, conf: GridConfiguration,
     rgxs = rgxs_temp + grid_shape[3] / 2 - 0.5
 
     # pixel values into mm
-    cxs = conf.cw * (lxs / (grid_shape[0] - 1) + rgxs) - 0.5 * true_width
-    cys = true_height - conf.cw * (2 * lys / (grid_shape[1] - 1) + rgys)
+    cxs = conf.cw * ((lxs + 0.5) / grid_shape[0] + rgxs) - 0.5 * true_width
+    cys = true_height - conf.cw * (2 * (lys + 0.5) / grid_shape[1] + rgys)
 
     # project onto the camera plane
     a, b, d = real_coeffs

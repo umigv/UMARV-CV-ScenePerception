@@ -103,7 +103,7 @@ pr.dump_stats("out/single_frame.prof")
 
 # DISPLAY DATA
 
-print(f"\n----- {(end - start) / 1e6:.3f} ms -----\n")
+print(f"\n----- {(end - start) / 1e6:.0f} ms -----\n")
 
 print("coeffs: ", ransac_coeffs)
 print("angle: ", math.degrees(angle))
