@@ -169,7 +169,7 @@ def mask(depths, coeffs, tol: float):
 
 def ground_plane(
     depths,
-    iters: int = 60,
+    num_samples: int = 60,
     kernel: tuple[int, int] = (1, 16),
     tol: float = 0.12,
     guess=np.array([0.0, 0.0, 0.0])
@@ -184,7 +184,7 @@ def ground_plane(
 
     pooled = pool(inv_depths, kernel)
 
-    A, b = sample(pooled, batch=iters)
+    A, b = sample(pooled, batch=num_samples)
     coeffs = plane(A, b)
 
     scores = metric(pooled, coeffs, tol)
