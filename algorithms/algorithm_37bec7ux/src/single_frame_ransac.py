@@ -16,7 +16,7 @@ import ransac.occu
 filename = "res/perspective_test.svo2.hdf5"
 frame_number = -1
 
-iters = 50
+iters = 100
 kernel = (1, 16)  # kernel is rows, columns
 tolerance = 0.1
 
@@ -78,7 +78,8 @@ cam = ransac.VirtualCamera(occ_h - 1, occ_w // 2,
 end = time.perf_counter_ns()
 pr.disable()
 
-los_grid = ransac.occu.create_los_grid(full_occ, [cam]) # IMPORTANT don't profile this, has JIT compile time of 0.5s
+# IMPORTANT don't profile this, has JIT compile time of 0.5s
+los_grid = ransac.occu.create_los_grid(full_occ, [cam])
 
 s = io.StringIO()
 pstats.Stats(pr, stream=s).strip_dirs().sort_stats("tottime").print_stats(20)

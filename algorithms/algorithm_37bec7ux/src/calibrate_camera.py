@@ -29,7 +29,6 @@ else:
     sl_device = sl.MEM.CPU
 
 
-
 class CameraMergeUI:
     def __init__(self, grid_size=160, panel_size=240):
         self.grid_size = grid_size
@@ -65,7 +64,8 @@ class CameraMergeUI:
         return cv2.applyColorMap((grid).astype(np.uint8), cv2.COLORMAP_BONE)
 
     def _make_panel(self, title, img, title_color):
-        panel = np.ones((self.panel_size, self.panel_size, 3), dtype=np.uint8) * 42
+        panel = np.ones((self.panel_size, self.panel_size, 3),
+                        dtype=np.uint8) * 42
 
         self._draw_centered_text(
             panel,
@@ -75,8 +75,9 @@ class CameraMergeUI:
             color=title_color
         )
 
-        img_resized = cv2.resize(img, (self.panel_size - 52, self.panel_size - 52))
-        
+        img_resized = cv2.resize(
+            img, (self.panel_size - 52, self.panel_size - 52))
+
         h, w = img_resized.shape[:2]
         y0 = (self.panel_size - h) // 2 + 26
         x0 = (self.panel_size - w) // 2
@@ -144,12 +145,16 @@ class CameraMergeUI:
                 1
             )
             bar_w = int((width - 40) * (value / max_val)) if max_val > 0 else 0
-            cv2.rectangle(canvas, (20, y + 10), (20 + bar_w, y + 25), color, -1)
-            cv2.rectangle(canvas, (20, y + 10), (width - 20, y + 25), (60, 60, 60), 1)
+            cv2.rectangle(canvas, (20, y + 10),
+                          (20 + bar_w, y + 25), color, -1)
+            cv2.rectangle(canvas, (20, y + 10),
+                          (width - 20, y + 25), (60, 60, 60), 1)
 
         max_possible = self.grid_size * self.grid_size
-        draw_bar("Current Score", current_score, max_possible, 75, (120, 255, 120))
-        draw_bar("Best Session Score", best_score, max_possible, 140, (255, 200, 100))
+        draw_bar("Current Score", current_score,
+                 max_possible, 75, (120, 255, 120))
+        draw_bar("Best Session Score", best_score,
+                 max_possible, 140, (255, 200, 100))
 
         if best_params:
             angle, disp, z_off = best_params
@@ -255,7 +260,7 @@ class CameraMergeUI:
         best_params=None,
         profile_text=""
     ):
-        
+
         now = time.time()
         self._profile_text = profile_text
         self._times.append(now)
@@ -264,27 +269,34 @@ class CameraMergeUI:
             self._times = self._times[-60:]
 
         if len(self._times) > 1:
-            self._fps = (len(self._times) - 1) / (self._times[-1] - self._times[0])
+            self._fps = (len(self._times) - 1) / \
+                (self._times[-1] - self._times[0])
         else:
             self._fps = 0
-            
+
         occ_row = np.hstack([
-            self._make_panel("Camera 1 - Occ", self._colorize_grid(occ1), (255, 120, 120)),
-            self._make_panel("Camera 2 - Occ", self._colorize_grid(occ2), (120, 255, 120)),
-            self._make_panel("Merged - Occ", self._colorize_grid(merged_occ), (220, 220, 220)),
+            self._make_panel("Camera 1 - Occ",
+                             self._colorize_grid(occ1), (255, 120, 120)),
+            self._make_panel("Camera 2 - Occ",
+                             self._colorize_grid(occ2), (120, 255, 120)),
+            self._make_panel(
+                "Merged - Occ", self._colorize_grid(merged_occ), (220, 220, 220)),
         ])
 
         width = occ_row.shape[1]
 
         title_bar = self._draw_title_bar(width)
-        
+
         cam_view_w = int(width * 0.7)
         score_view_w = width - cam_view_w
-        cam_top_view = self._draw_camera_top_view(cam_view_w, angle, displacement, z_offset)
-        score_view = self._draw_score_visual(score_view_w, current_score, best_score, best_params)
+        cam_top_view = self._draw_camera_top_view(
+            cam_view_w, angle, displacement, z_offset)
+        score_view = self._draw_score_visual(
+            score_view_w, current_score, best_score, best_params)
         camera_view = np.hstack([cam_top_view, score_view])
 
-        controls = self._draw_controls_bar(width, angle, displacement, z_offset)
+        controls = self._draw_controls_bar(
+            width, angle, displacement, z_offset)
         profile_bar = self._draw_profile_bar(width)
 
         dashboard = np.vstack([
@@ -297,7 +309,6 @@ class CameraMergeUI:
 
         cv2.imshow(self.window_name, dashboard)
 
-    
     def handle_keyboard(self, angle, displacement, z_offset):
 
         key = cv2.waitKey(30) & 0xFF
@@ -324,10 +335,10 @@ class CameraMergeUI:
             self.pause = not self.pause
 
         return key, angle, displacement, z_offset
-    
 
 
 cam = sl.Camera()
+
 
 def main():
     cams = []
@@ -408,13 +419,16 @@ def main():
                     print("Grab error:", err)
                     continue
 
-                cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl_device, low_res)
-                cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl_device, low_res)
+                cams[i].retrieve_image(
+                    image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
+                cams[i].retrieve_measure(
+                    depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
 
                 t_grab += (time.perf_counter() - t0)
 
-                image = image_mats[i].get_data(sl_device)
-                depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl_device))
+                image = image_mats[i].get_data(sl.MEM.GPU)
+                depths = ransac.plane.clean_depths(
+                    depth_mats[i].get_data(sl.MEM.GPU))
 
                 t0 = time.perf_counter()
 
@@ -426,11 +440,13 @@ def main():
                     guess=px_coeffs_cache[i]
                 )
 
-                real_coeffs = ransac.plane.real_coeffs(px_coeffs_cache[i], intr[i])
+                real_coeffs = ransac.plane.real_coeffs(
+                    px_coeffs_cache[i], intr[i])
 
                 t_ransac += (time.perf_counter() - t0)
 
-                drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
+                drive_ppc = ransac.occu.create_point_cloud(
+                    ransac_output, depths)
                 block_ppc = ransac.occu.create_point_cloud(
                     ransac_output != 1, depths
                 )
@@ -442,19 +458,22 @@ def main():
             else:
                 if last_drive_ppc[i] is None or last_block_ppc[i] is None or last_real_coeffs[i] is None:
                     t0 = time.perf_counter()
-                    
+
                     err = cams[i].grab(runtime)
                     if err != sl.ERROR_CODE.SUCCESS:
                         print("Grab error during pause-init:", err)
                         continue
 
-                    cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
-                    cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
-                    
+                    cams[i].retrieve_image(
+                        image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+                    cams[i].retrieve_measure(
+                        depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+
                     t_grab += (time.perf_counter() - t0)
 
-                    image = image_mats[i].get_data(sl.MEM.GPU)
-                    depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl.MEM.GPU))
+                    image = image_mats[i].get_data()
+                    depths = ransac.plane.clean_depths(
+                        depth_mats[i].get_data())
 
                     t0 = time.perf_counter()
 
@@ -466,11 +485,13 @@ def main():
                         guess=px_coeffs_cache[i]
                     )
 
-                    last_real_coeffs[i] = ransac.plane.real_coeffs(px_coeffs_cache[i], intr[i])
-                    
+                    last_real_coeffs[i] = ransac.plane.real_coeffs(
+                        px_coeffs_cache[i], intr[i])
+
                     t_ransac += (time.perf_counter() - t0)
 
-                    last_drive_ppc[i] = ransac.occu.create_point_cloud(ransac_output, depths)
+                    last_drive_ppc[i] = ransac.occu.create_point_cloud(
+                        ransac_output, depths)
                     last_block_ppc[i] = ransac.occu.create_point_cloud(
                         ransac_output != 1, depths
                     )
@@ -492,7 +513,7 @@ def main():
             )
             drive_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
             drive_rpc[:, 2] += (-1 if i == 0 else 1) * half_z_offset_mm
-        
+
             block_rpc = ransac.occu.pixel_to_real(
                 last_block_ppc[i],
                 last_real_coeffs[i],
@@ -506,7 +527,7 @@ def main():
             block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
 
             full_occ = ransac.occu.composite(drive_occ, block_occ)
-            
+
             t_occ += (time.perf_counter() - t0)
 
             occ_grids.append(full_occ)
@@ -525,14 +546,15 @@ def main():
             255,
             np.where(merged_occ < 127, 0, 127)
         ).astype(np.uint8)
-        
+
         t_merge += (time.perf_counter() - t0)
 
         if ui.pause:
             if not was_paused:
                 best_score = 0
                 was_paused = True
-            current_score = int(np.sum((occ1 == 255) & (occ2 == 255)) + np.sum((occ1 == 0) & (occ2 == 0)))
+            current_score = int(np.sum((occ1 == 255) & (
+                occ2 == 255)) + np.sum((occ1 == 0) & (occ2 == 0)))
             if current_score > best_score:
                 best_score = current_score
                 best_params = (angle_deg, displacement_cm, z_offset_cm)
@@ -586,7 +608,8 @@ def main():
                 displacement=displacement_cm,
                 z_offset=z_offset_cm
             )
-            print(f"Saved calibration: angle={angle_deg}, disp={displacement_cm}, z_offset={z_offset_cm}")
+            print(
+                f"Saved calibration: angle={angle_deg}, disp={displacement_cm}, z_offset={z_offset_cm}")
 
             break
 
@@ -604,7 +627,8 @@ def main():
                 displacement=bd,
                 z_offset=bz
             )
-            print(f"Saved BEST calibration: angle={ba}, disp={bd}, z_offset={bz}")
+            print(
+                f"Saved BEST calibration: angle={ba}, disp={bd}, z_offset={bz}")
 
             break
 

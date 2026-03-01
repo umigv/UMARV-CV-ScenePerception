@@ -13,7 +13,8 @@ def get_device():
 def clean_depths(depths):
     device = get_device()
     depths = torch.as_tensor(depths, dtype=torch.float32, device=device)
-    depths = torch.where(torch.isinf(depths) | torch.isnan(depths), -1.0, depths)
+    depths = torch.where(torch.isinf(depths) |
+                         torch.isnan(depths), -1.0, depths)
     depths = torch.clamp(depths, max=10000.0)
     return depths
 
@@ -30,6 +31,7 @@ def pool(depths, kernel: tuple[int, int]):
     depths = depths.unsqueeze(0).unsqueeze(0)
     pooled = F.max_pool2d(depths, kernel_size=kernel)
     return pooled.squeeze(0).squeeze(0)
+
 
 def sample(pooled, batch: int, max_attempts: int = 10):
     device = pooled.device
@@ -100,7 +102,8 @@ def sample(pooled, batch: int, max_attempts: int = 10):
         else:
             # extreme case: almost no valid depth
             A_out[remaining] = torch.eye(3, device=device)
-            b_out[remaining] = torch.ones((remaining.numel(), 3), device=device)
+            b_out[remaining] = torch.ones(
+                (remaining.numel(), 3), device=device)
 
     return A_out, b_out
 
@@ -219,8 +222,8 @@ def real_coeffs(best_coeffs, intrinsics):
 
     return (
         -d * c1 * intrinsics.fx,
-         d * c2 * intrinsics.fy,
-         d
+        d * c2 * intrinsics.fy,
+        d
     )
 
 

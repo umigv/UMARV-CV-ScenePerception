@@ -123,7 +123,7 @@ def main():
     depth_m = sl.Mat()
 
     key = 0
-    
+
     px_coeffs = np.array([0, 0, 0])
     while key != 113:  # for 'q' key
         err = cam.grab(runtime)
@@ -146,7 +146,8 @@ def main():
             real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
             rad = ransac.plane.real_angle(real_coeffs)
 
-            drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths, 0)
+            drive_ppc = ransac.occu.create_point_cloud(
+                ransac_output, depths, 0)
             drive_rpc = ransac.occu.pixel_to_real(
                 drive_ppc, real_coeffs, intr)
             block_ppc = ransac.occu.create_point_cloud(

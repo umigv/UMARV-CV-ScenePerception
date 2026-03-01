@@ -169,8 +169,10 @@ def main():
     while key != 113:  # for 'q' key
         for i in range(2):
             cams[i].grab(runtime)
-            cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
-            cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+            cams[i].retrieve_image(
+                image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+            cams[i].retrieve_measure(
+                depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
 
         occ_grids = []
         px_coeffs_left = None
@@ -179,7 +181,8 @@ def main():
             image = image_mats[i].get_data()
             depths = ransac.plane.clean_depths(depth_mats[i].get_data())
 
-            ransac_output, px_coeffs = ransac.plane.ground_plane(depths, 60, (1, 16), 0.15)
+            ransac_output, px_coeffs = ransac.plane.ground_plane(
+                depths, 60, (1, 16), 0.15)
             real_coeffs = ransac.plane.real_coeffs(px_coeffs, intr)
 
             if i == 0:
@@ -188,7 +191,8 @@ def main():
 
             drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
             drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real_coeffs, intr)
-            block_ppc = ransac.occu.create_point_cloud(ransac_output != 1, depths)
+            block_ppc = ransac.occu.create_point_cloud(
+                ransac_output != 1, depths)
             block_rpc = ransac.occu.pixel_to_real(block_ppc, real_coeffs, intr)
 
             drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
@@ -200,30 +204,42 @@ def main():
         full_occ_right = occ_grids[1]
 
         if saved_transform_left is not None and saved_transform_right is not None:
-            occ1 = cv2.warpAffine(full_occ_left, saved_transform_left, (full_occ_left.shape[1], full_occ_left.shape[0]), flags=cv2.INTER_LINEAR)
-            occ2 = cv2.warpAffine(full_occ_right, saved_transform_right, (full_occ_right.shape[1], full_occ_right.shape[0]), flags=cv2.INTER_LINEAR)
+            occ1 = cv2.warpAffine(full_occ_left, saved_transform_left, (
+                full_occ_left.shape[1], full_occ_left.shape[0]), flags=cv2.INTER_LINEAR)
+            occ2 = cv2.warpAffine(full_occ_right, saved_transform_right, (
+                full_occ_right.shape[1], full_occ_right.shape[0]), flags=cv2.INTER_LINEAR)
         else:
             h_occ, w_occ = full_occ_left.shape
-            transform_left = cv2.getRotationMatrix2D((w_occ // 2, h_occ // 2), angle_deg / 2, 1)
+            transform_left = cv2.getRotationMatrix2D(
+                (w_occ // 2, h_occ // 2), angle_deg / 2, 1)
             transform_left[0, 2] -= displacement_cm / 3.3 / 2
-            transform_right = cv2.getRotationMatrix2D((w_occ // 2, h_occ // 2), -angle_deg / 2, 1)
+            transform_right = cv2.getRotationMatrix2D(
+                (w_occ // 2, h_occ // 2), -angle_deg / 2, 1)
             transform_right[0, 2] += displacement_cm / 3.3 / 2
 
-            occ1 = cv2.warpAffine(full_occ_left, transform_left, (w_occ, h_occ), flags=cv2.INTER_LINEAR)
-            occ2 = cv2.warpAffine(full_occ_right, transform_right, (w_occ, h_occ), flags=cv2.INTER_LINEAR)
+            occ1 = cv2.warpAffine(
+                full_occ_left, transform_left, (w_occ, h_occ), flags=cv2.INTER_LINEAR)
+            occ2 = cv2.warpAffine(
+                full_occ_right, transform_right, (w_occ, h_occ), flags=cv2.INTER_LINEAR)
 
         merged_occ = np.maximum(occ1, occ2)
-        merged_occ = np.where((occ1 == 128) | (occ2 == 128), np.maximum(occ1, occ2), merged_occ)
+        merged_occ = np.where((occ1 == 128) | (
+            occ2 == 128), np.maximum(occ1, occ2), merged_occ)
 
-        cv2.imshow("occ1", cv2.resize(occ1, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT))
-        cv2.imshow("occ2", cv2.resize(occ2, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT))
-        cv2.imshow("merged_occ", cv2.resize(merged_occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT))
+        cv2.imshow("occ1", cv2.resize(occ1, (600, 600),
+                   interpolation=cv2.INTER_NEAREST_EXACT))
+        cv2.imshow("occ2", cv2.resize(occ2, (600, 600),
+                   interpolation=cv2.INTER_NEAREST_EXACT))
+        cv2.imshow("merged_occ", cv2.resize(merged_occ, (600, 600),
+                   interpolation=cv2.INTER_NEAREST_EXACT))
 
         occ_h, occ_w = full_occ_left.shape
-        vcam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
+        vcam = ransac.VirtualCamera(
+            occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
         los = ransac.occu.create_los_grid(merged_occ, [vcam])
         los = cv2.cvtColor(los, cv2.COLOR_GRAY2BGR)
-        los = cv2.resize(los, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT)
+        los = cv2.resize(
+            los, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT)
         cv2.imshow("occupancy grid", los)
 
         x = w // 2
@@ -232,7 +248,8 @@ def main():
         pred_real = np.array([])
         if px_coeffs_left is not None:
             pred = ransac.occu.create_ground_cloud(coords, px_coeffs_left)
-            pred_real = ransac.occu.pixel_to_real(pred, real_coeffs_left, intr)[:, (0, 2)]
+            pred_real = ransac.occu.pixel_to_real(
+                pred, real_coeffs_left, intr)[:, (0, 2)]
         print(pred_real)
 
         try:
@@ -248,9 +265,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-            

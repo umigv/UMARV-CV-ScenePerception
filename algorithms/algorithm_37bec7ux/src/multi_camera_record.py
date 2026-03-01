@@ -62,7 +62,8 @@ def grab_run(index):
     while not stop_signal:
         err = zed_list[index].grab(runtime)
         if err == sl.ERROR_CODE.SUCCESS:
-            zed_list[index].retrieve_image(left_list[index], sl.VIEW.LEFT, sl.MEM.CPU, resolution_list[index])
+            zed_list[index].retrieve_image(
+                left_list[index], sl.VIEW.LEFT, sl.MEM.CPU, resolution_list[index])
             zed_list[index].retrieve_measure(
                 depth_list[index], sl.MEASURE.DEPTH, sl.MEM.CPU, resolution_list[index])
             timestamp_list[index] = zed_list[index].get_timestamp(
@@ -106,10 +107,11 @@ def main():
             print(repr(status))
             zed_list[index].close()
 
-        resolution = zed_list[index].get_camera_information().camera_configuration.resolution
+        resolution = zed_list[index].get_camera_information(
+        ).camera_configuration.resolution
         resolution_list.append(sl.Resolution(
             min(720, resolution.width), min(404, resolution.height)))
-        
+
         timestamps[f"{cam.serial_number}"] = []
         images[f"{cam.serial_number}"] = []
         depths[f"{cam.serial_number}"] = []
@@ -131,9 +133,10 @@ def main():
                 if (timestamp_list[index] > last_ts_list[index]):
                     serial = name_list[index]
                     timestamps[serial].append(timestamp_list[index])
-                    images[serial].append(left_list[index].get_data()[:, :, :3])
+                    images[serial].append(
+                        left_list[index].get_data()[:, :, :3])
                     depths[serial].append(depth_list[index].get_data())
-                    
+
                     cv2.imshow(name_list[index], left_list[index].get_data())
 
                     # get depth at central pixel
@@ -146,10 +149,9 @@ def main():
 
                     last_ts_list[index] = timestamp_list[index]
         key = cv2.waitKey(10)
-    
+
     hdf5_path = "out/multi_camera_record.hdf5"
     print(f"\nWriting to {hdf5_path}...")
-
 
     hf = h5py.File(hdf5_path, "w")
     for i, cam in enumerate(cameras):
@@ -157,16 +159,24 @@ def main():
         calibration_params = cam_info.camera_configuration.calibration_parameters
 
         # LEFT CAMERA intrinsics
-        fx_left = calibration_params.left_cam.fx / cam_info.camera_configuration.resolution.width
-        fy_left = calibration_params.left_cam.fy / cam_info.camera_configuration.resolution.height
-        cx_left = calibration_params.left_cam.cx / cam_info.camera_configuration.resolution.width
-        cy_left = calibration_params.left_cam.cy / cam_info.camera_configuration.resolution.height
+        fx_left = calibration_params.left_cam.fx / \
+            cam_info.camera_configuration.resolution.width
+        fy_left = calibration_params.left_cam.fy / \
+            cam_info.camera_configuration.resolution.height
+        cx_left = calibration_params.left_cam.cx / \
+            cam_info.camera_configuration.resolution.width
+        cy_left = calibration_params.left_cam.cy / \
+            cam_info.camera_configuration.resolution.height
 
         # RIGHT CAMERA intrinsics
-        fx_right = calibration_params.right_cam.fx / cam_info.camera_configuration.resolution.width
-        fy_right = calibration_params.right_cam.fy / cam_info.camera_configuration.resolution.height
-        cx_right = calibration_params.right_cam.cx / cam_info.camera_configuration.resolution.width
-        cy_right = calibration_params.right_cam.cy / cam_info.camera_configuration.resolution.height
+        fx_right = calibration_params.right_cam.fx / \
+            cam_info.camera_configuration.resolution.width
+        fy_right = calibration_params.right_cam.fy / \
+            cam_info.camera_configuration.resolution.height
+        cx_right = calibration_params.right_cam.cx / \
+            cam_info.camera_configuration.resolution.width
+        cy_right = calibration_params.right_cam.cy / \
+            cam_info.camera_configuration.resolution.height
 
         tx = calibration_params.stereo_transform.get_translation().get()[0]
 
@@ -183,7 +193,7 @@ def main():
         hf.create_dataset(f"inf{i}/cy_right", data=cy_right)
         hf.create_dataset(f"inf{i}/tx", data=tx)
         # {"serial": serial_str,
-        #                                    "fx_left": fx_left, "fy_left": fy_left, "cx_left": cx_left, "cy_left": cy_left, 
+        #                                    "fx_left": fx_left, "fy_left": fy_left, "cx_left": cx_left, "cy_left": cy_left,
         #                                    "fx_right": fx_right, "fy_right": fy_right, "cx_right": cx_right, "cy_right": cy_right, "tx": tx})
         hf.create_dataset(f"tim{i}", data=timestamps[serial_str])
         hf.create_dataset(
@@ -198,7 +208,7 @@ def main():
     stop_signal = True
     for index in range(0, len(thread_list)):
         thread_list[index].join()
-    
+
     print("\nFINISH")
 
 

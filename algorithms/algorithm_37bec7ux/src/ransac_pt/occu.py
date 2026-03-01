@@ -104,7 +104,6 @@ def occupancy_grid(real_pc, conf):
     return grid
 
 
-
 def composite(drive_occ, block_occ):
     if isinstance(drive_occ, torch.Tensor):
         drive_occ = drive_occ.detach().cpu().numpy()
@@ -210,6 +209,9 @@ def create_los_grid(merged, cameras=[]):
                 break
 
         merged[cam.i, cam.j] = 255
+        
+        idx = idx[0:len(idx)//2:-1] + idx[len(idx)//2:len(idx)-1]
+        jdx = jdx[0:len(jdx)//2:-1] + jdx[len(jdx)//2:len(jdx)-1]
 
         for end_i, end_j in zip(idx, jdx):
             state = 255

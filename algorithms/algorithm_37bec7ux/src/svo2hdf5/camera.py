@@ -1,12 +1,14 @@
 import pyzed.sl as sl
 
+
 def main():
     # Initialize the ZED camera
     zed = sl.Camera()
 
     # Set initialization parameters
     init_params = sl.InitParameters()
-    init_params.camera_resolution = sl.RESOLUTION.HD720  # Choose HD720, HD1080, etc.
+    # Choose HD720, HD1080, etc.
+    init_params.camera_resolution = sl.RESOLUTION.HD720
     init_params.camera_fps = 30
 
     # OPTIONAL: Disable self-calibration to avoid the warning
@@ -55,6 +57,7 @@ def main():
 
     # Close the camera
     zed.close()
+
 
 if __name__ == "__main__":
     main()

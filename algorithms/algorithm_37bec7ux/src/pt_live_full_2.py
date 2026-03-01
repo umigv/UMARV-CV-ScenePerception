@@ -174,15 +174,18 @@ def main():
     while key != 113:  # for 'q' key
         for i in range(2):
             cams[i].grab(runtime)
-            cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
-            cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
+            cams[i].retrieve_image(
+                image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
+            cams[i].retrieve_measure(
+                depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
 
         occ_grids = []
         px_coeffs_left = None
         real_coeffs_left = None
         for i in range(2):
             image = image_mats[i].get_data(sl.MEM.GPU)
-            depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl.MEM.GPU))
+            depths = ransac.plane.clean_depths(
+                depth_mats[i].get_data(sl.MEM.GPU))
 
             ransac_output, px_coeffs_cache[i] = ransac.plane.ground_plane(
                 depths,
@@ -192,7 +195,8 @@ def main():
                 guess=px_coeffs_cache[i]
             )
 
-            real_coeffs_cache[i] = ransac.plane.real_coeffs(px_coeffs_cache[i], intr)
+            real_coeffs_cache[i] = ransac.plane.real_coeffs(
+                px_coeffs_cache[i], intr)
             real_coeffs = real_coeffs_cache[i]
 
             if i == 0:
@@ -202,12 +206,15 @@ def main():
             sign = 1 if i == 0 else -1
 
             drive_ppc = ransac.occu.create_point_cloud(ransac_output, depths)
-            drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real_coeffs, intr, half_angle_rad * sign)
+            drive_rpc = ransac.occu.pixel_to_real(
+                drive_ppc, real_coeffs, intr, half_angle_rad * sign)
             drive_rpc[:, 0] += -sign * half_displacement_mm
             drive_rpc[:, 2] += -sign * half_z_offset_mm
 
-            block_ppc = ransac.occu.create_point_cloud(ransac_output != 1, depths)
-            block_rpc = ransac.occu.pixel_to_real(block_ppc, real_coeffs, intr, half_angle_rad * sign)
+            block_ppc = ransac.occu.create_point_cloud(
+                ransac_output != 1, depths)
+            block_rpc = ransac.occu.pixel_to_real(
+                block_ppc, real_coeffs, intr, half_angle_rad * sign)
             block_rpc[:, 0] += -sign * half_displacement_mm
             block_rpc[:, 2] += -sign * half_z_offset_mm
 
@@ -220,7 +227,7 @@ def main():
 
         occ1 = occ_grids[0]
         occ2 = occ_grids[1]
-    
+
         merged_occ = (occ1.astype(np.int32) + occ2.astype(np.int32)) // 2
         merged_occ = np.where(
             merged_occ > 127,
@@ -228,15 +235,20 @@ def main():
             np.where(merged_occ < 127, 0, 127)
         ).astype(np.uint8)
 
-        cv2.imshow("occ1", cv2.resize(occ1, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT))
-        cv2.imshow("occ2", cv2.resize(occ2, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT))
-        cv2.imshow("merged_occ", cv2.resize(merged_occ, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT))
+        cv2.imshow("occ1", cv2.resize(occ1, (600, 600),
+                   interpolation=cv2.INTER_NEAREST_EXACT))
+        cv2.imshow("occ2", cv2.resize(occ2, (600, 600),
+                   interpolation=cv2.INTER_NEAREST_EXACT))
+        cv2.imshow("merged_occ", cv2.resize(merged_occ, (600, 600),
+                   interpolation=cv2.INTER_NEAREST_EXACT))
 
         occ_h, occ_w = occ1.shape
-        vcam = ransac.VirtualCamera(occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
+        vcam = ransac.VirtualCamera(
+            occ_h - 1, occ_w // 2, math.pi / 2, math.radians(110))
         los = ransac.occu.create_los_grid(merged_occ, [vcam])
         los = cv2.cvtColor(los, cv2.COLOR_GRAY2BGR)
-        los = cv2.resize(los, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT)
+        los = cv2.resize(
+            los, (600, 600), interpolation=cv2.INTER_NEAREST_EXACT)
         cv2.imshow("occupancy grid", los)
 
         x = w // 2
@@ -245,7 +257,8 @@ def main():
         pred_real = np.array([])
         if px_coeffs_left is not None:
             pred = ransac.occu.create_ground_cloud(coords, px_coeffs_left)
-            pred_real = ransac.occu.pixel_to_real(pred, real_coeffs_left, intr)[:, (0, 2)]
+            pred_real = ransac.occu.pixel_to_real(
+                pred, real_coeffs_left, intr)[:, (0, 2)]
         print(pred_real)
 
         try:
@@ -261,9 +274,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-            

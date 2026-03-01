@@ -57,7 +57,7 @@ def main(opt):
         min(720, resolution.width) * 2, min(404, resolution.height))
     low_resolution_d = sl.Resolution(
         min(720, resolution.width), min(404, resolution.height))
-    
+
     svo_image = sl.Mat(min(720, resolution.width) * 2,
                        min(404, resolution.height), sl.MAT_TYPE.U8_C4, sl.MEM.CPU)
     svo_image = sl.Mat()
