@@ -16,7 +16,7 @@ import ransac.occu
 filename = "res/perspective_test.svo2.hdf5"
 frame_number = -1
 
-iters = 50
+iters = 100
 kernel = (1, 16)  # kernel is rows, columns
 tolerance = 0.1
 
