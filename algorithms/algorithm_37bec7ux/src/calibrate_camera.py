@@ -23,6 +23,11 @@ import ransac_pt.occu
 
 # torch.cuda.is_available = lambda: False # force CPU
 
+if torch.cuda.is_available():
+    sl_device = sl.MEM.GPU
+else:
+    sl_device = sl.MEM.CPU
+
 
 
 class CameraMergeUI:
@@ -403,13 +408,13 @@ def main():
                     print("Grab error:", err)
                     continue
 
-                cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
-                cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
+                cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl_device, low_res)
+                cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl_device, low_res)
 
                 t_grab += (time.perf_counter() - t0)
 
-                image = image_mats[i].get_data(sl.MEM.GPU)
-                depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl.MEM.GPU))
+                image = image_mats[i].get_data(sl_device)
+                depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl_device))
 
                 t0 = time.perf_counter()
 
@@ -443,13 +448,13 @@ def main():
                         print("Grab error during pause-init:", err)
                         continue
 
-                    cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
-                    cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+                    cams[i].retrieve_image(image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
+                    cams[i].retrieve_measure(depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
                     
                     t_grab += (time.perf_counter() - t0)
 
-                    image = image_mats[i].get_data()
-                    depths = ransac.plane.clean_depths(depth_mats[i].get_data())
+                    image = image_mats[i].get_data(sl.MEM.GPU)
+                    depths = ransac.plane.clean_depths(depth_mats[i].get_data(sl.MEM.GPU))
 
                     t0 = time.perf_counter()
 
