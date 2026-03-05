@@ -218,13 +218,15 @@ def oneshot(mask_in, real_coeffs, intr: Intrinsics, conf: GridConfiguration,
     gys = np.arange(grid_shape[2])[None, None, :, None]
     gxs = np.arange(grid_shape[3])[None, None, None, :]
 
-    # apply camera rotation
+    # apply camera rotation around the correct point
     rgys = grid_shape[2] - gys - 0.5
     rgxs = gxs - grid_shape[3] / 2 + 0.5
-    rgxs_temp = rgxs * math.cos(cam_h) + rgys * math.sin(cam_h)
-    rgys_temp = -rgxs * math.sin(cam_h) + rgys * math.cos(cam_h)
-    rgys = grid_shape[2] - rgys_temp - 0.5
-    rgxs = rgxs_temp + grid_shape[3] / 2 - 0.5
+    rgxs_tmp = rgxs * math.cos(cam_h) + rgys * math.sin(cam_h)
+    rgys_tmp = -rgxs * math.sin(cam_h) + rgys * math.cos(cam_h)
+    rgys = grid_shape[2] - rgys_tmp - 0.5
+    # intr.tx term compensates for depths being centered on left camera lens
+    # shift "after" position because rg{x,y}s used to poll from the mask
+    rgxs = rgxs_tmp + grid_shape[3] / 2 - 0.5 + (intr.tx / conf.cw / 2)
 
     # pixel values into mm
     cxs = conf.cw * ((lxs + 0.5) / grid_shape[0] + rgxs) - 0.5 * true_width

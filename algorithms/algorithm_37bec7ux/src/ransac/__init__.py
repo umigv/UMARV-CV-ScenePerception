@@ -7,6 +7,7 @@ class Intrinsics:
     cy: float
     fx: float
     fy: float
+    tx: float = 0
 
 
 @dataclass
