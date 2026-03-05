@@ -87,8 +87,7 @@ angle = plane.real_angle(real)
 # TEST NEW OCCUPANCY GRID
 # start = time.perf_counter_ns()
 conf = GridConfiguration(5000, 5000, 50)
-occ = occu.oneshot(
-    ransac_output, real, intrinsics, conf, math.pi / 4, (0, 50, 100, 100))
+occ = occu.oneshot(ransac_output, real, intrinsics, conf, math.pi / 4)
 
 end = time.perf_counter_ns()
 pr.disable()

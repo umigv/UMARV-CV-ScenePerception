@@ -202,16 +202,14 @@ def create_los_grid(merged, cameras: list[VirtualCamera] = []):
 
 # TODO decompose pitch + roll angles
 # the numpy fuckery in this just helps interpolation
-def oneshot(mask, real_coeffs, intr: Intrinsics, conf: GridConfiguration,
-            h=0, ignore=None):
+def oneshot(mask_in, real_coeffs, intr: Intrinsics, conf: GridConfiguration,
+            cam_h=0, thres=200):
     # grid should be symmetric
     # first and second indices are number of layers to compute
     grid_shape = (3, 3, 2 * int((0.5 * conf.gh) // conf.cw),
                   2 * int((0.5 * conf.gw) // conf.cw))
     true_width = conf.cw * grid_shape[3]
     true_height = conf.cw * grid_shape[2]
-
-    grid = np.zeros(grid_shape, dtype=np.uint8)
 
     # go there, is the difference in depth of the prediction matching the depth at that actual place? is this process the same as the masking process? yes
 
@@ -223,8 +221,8 @@ def oneshot(mask, real_coeffs, intr: Intrinsics, conf: GridConfiguration,
     # apply camera rotation
     rgys = grid_shape[2] - gys - 0.5
     rgxs = gxs - grid_shape[3] / 2 + 0.5
-    rgxs_temp = rgxs * math.cos(h) + rgys * math.sin(h)
-    rgys_temp = -rgxs * math.sin(h) + rgys * math.cos(h)
+    rgxs_temp = rgxs * math.cos(cam_h) + rgys * math.sin(cam_h)
+    rgys_temp = -rgxs * math.sin(cam_h) + rgys * math.cos(cam_h)
     rgys = grid_shape[2] - rgys_temp - 0.5
     rgxs = rgxs_temp + grid_shape[3] / 2 - 0.5
 
@@ -234,24 +232,29 @@ def oneshot(mask, real_coeffs, intr: Intrinsics, conf: GridConfiguration,
 
     # project onto the camera plane
     a, b, d = real_coeffs
-
     theta = ransac.plane.real_angle(real_coeffs)
     cam_height = math.sin(theta) * d
     cys = cys * math.sin(theta)
     cys = cys - math.cos(theta) * cam_height
 
     # use mask to highlight driveable regions
-    # python matrix nonsense that somehow works
-
     zs = a * cxs + b * cys + d
     pxs = np.round((cxs * intr.fx) / zs + intr.cx)
     pys = np.round(intr.cy - (cys * intr.fy) / zs)
 
+    # ignore mask's outer edge
+    mask = 255 * mask_in.astype(np.float16)
+    mask[[0, -1], :] = np.nan
+    mask[:, [0, -1]] = np.nan
+
     pxs = np.clip(pxs, 0, mask.shape[1] - 1).astype(np.int16)
     pys = np.clip(pys, 0, mask.shape[0] - 1).astype(np.int16)
-    grid[lys, lxs, gys, gxs] = mask[pys, pxs]
-    grid = (255 * (np.mean(grid, axis=(0, 1)) >= 0.75)).astype(np.uint8)
-    if ignore is not None:
-        grid[ignore[0]:ignore[2], ignore[1]: ignore[3]] = 127
 
-    return grid
+    grid = np.zeros(grid_shape, dtype=np.float16)
+    grid[lys, lxs, gys, gxs] = mask[pys, pxs]
+    grid = np.mean(grid, axis=(0, 1))
+    grid = np.where(grid > thres, 255, grid)
+    grid = np.where(grid < thres, 0, grid)
+    grid = np.nan_to_num(grid, nan=127)
+
+    return grid.astype(np.uint8)
