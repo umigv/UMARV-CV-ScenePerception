@@ -24,3 +24,9 @@ class VirtualCamera:
     j: int
     dir: float  # radians
     fov: float  # radians
+
+@dataclass
+class CameraPosition:
+    x: float # mm, positive is right of wheelbase 
+    y: float # mm, positive is forward from wheelbase
+    h: float # radians, positive is anticlockwise

@@ -64,7 +64,7 @@ fx = 360
 h, w = depth_map.shape
 intrinsics = Intrinsics(w / 2, h / 2, fx, fx)
 real = plane.real_coeffs(ransac_coeffs, intrinsics)
-angle = plane.real_angle(real)
+# angle = plane.real_angle(real)
 
 # drive_ppc = ransac.occu.create_point_cloud(driveable, cleaned_depths)
 # drive_rpc = ransac.occu.pixel_to_real(drive_ppc, real, intrinsics, math.pi/4)
@@ -87,7 +87,8 @@ angle = plane.real_angle(real)
 # TEST NEW OCCUPANCY GRID
 # start = time.perf_counter_ns()
 conf = GridConfiguration(5000, 5000, 50)
-occ = occu.oneshot(ransac_output, real, intrinsics, conf, math.pi / 4)
+pos = CameraPosition(0, 0, math.radians(0))
+occ = occu.oneshot(ransac_output, real, intrinsics, conf, pos)
 
 end = time.perf_counter_ns()
 pr.disable()
@@ -105,7 +106,8 @@ pr.dump_stats("out/single_frame.prof")
 print(f"\n----- {(end - start) / 1e6:.0f} ms -----\n")
 
 print("coeffs: ", ransac_coeffs)
-print("angle: ", math.degrees(angle))
+
+print("angle: ", math.degrees(plane.real_angle(real)))
 
 # exit()
 
