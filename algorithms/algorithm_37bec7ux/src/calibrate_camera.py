@@ -345,6 +345,7 @@ def main():
     init = sl.InitParameters()
     init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
+    init.camera_resolution = sl.RESOLUTION.VGA
 
     devices = sl.Camera.get_device_list()
     if len(devices) < 2:
