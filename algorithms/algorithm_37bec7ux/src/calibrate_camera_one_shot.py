@@ -15,6 +15,7 @@ import math
 import os
 import time
 import torch
+from multiprocessing import Pool
 
 import pyzed.sl as sl
 # import ransac_pt as ransac
@@ -346,7 +347,6 @@ cam = sl.Camera()
 def main():
     cams = []
     init = sl.InitParameters()
-    init.camera_resolution = sl.RESOLUTION.VGA
     init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
     init.camera_resolution = sl.RESOLUTION.VGA
@@ -381,8 +381,7 @@ def main():
 
         intr[i] = ransac.Intrinsics(w / 2, h / 2, fx / 2, fy / 2)
 
-    drive_conf = ransac.GridConfiguration(5000, 5000, 50, thres=2)
-    block_conf = ransac.GridConfiguration(5000, 5000, 50, thres=1)
+    conf = ransac.GridConfiguration(5000, 5000, 50)
 
     image_mats = [sl.Mat(), sl.Mat()]
     depth_mats = [sl.Mat(), sl.Mat()]
@@ -394,8 +393,7 @@ def main():
 
     key = 0
 
-    last_drive_ppc = [None, None]
-    last_block_ppc = [None, None]
+    last_ransac_output = [None, None]
     last_real_coeffs = [None, None]
 
     px_coeffs_cache = [np.array([0, 0, 0]), np.array([0, 0, 0])]
@@ -403,6 +401,9 @@ def main():
     best_score = 0
     best_params = (0, 0, 0)
     was_paused = False
+
+    processes = 8
+    pool = Pool(processes) if processes > 0 else None
 
     while True:
         frame_start = time.perf_counter()
@@ -432,7 +433,6 @@ def main():
                 t_grab += (time.perf_counter() - t0)
 
                 image = image_mats[i].get_data(sl_device)
-                print(depth_mats)
                 depths = ransac.plane.clean_depths(
                     depth_mats[i].get_data(sl_device))
 
@@ -443,7 +443,9 @@ def main():
                     60,
                     (1, 16),
                     0.15,
-                    guess=px_coeffs_cache[i]
+                    guess=px_coeffs_cache[i],
+                    pool,
+                    processes
                 )
 
                 real_coeffs = ransac.plane.real_coeffs(
@@ -451,18 +453,11 @@ def main():
 
                 t_ransac += (time.perf_counter() - t0)
 
-                drive_ppc = ransac.occu.create_point_cloud(
-                    ransac_output, depths)
-                block_ppc = ransac.occu.create_point_cloud(
-                    ransac_output != 1, depths
-                )
-
-                last_drive_ppc[i] = drive_ppc
-                last_block_ppc[i] = block_ppc
+                last_ransac_output[i] = ransac_output
                 last_real_coeffs[i] = real_coeffs
 
             else:
-                if last_drive_ppc[i] is None or last_block_ppc[i] is None or last_real_coeffs[i] is None:
+                if last_ransac_output[i] is None or last_real_coeffs[i] is None:
                     t0 = time.perf_counter()
 
                     err = cams[i].grab(runtime)
@@ -471,15 +466,15 @@ def main():
                         continue
 
                     cams[i].retrieve_image(
-                        image_mats[i], sl.VIEW.LEFT, sl_device, low_res)
+                        image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
                     cams[i].retrieve_measure(
-                        depth_mats[i], sl.MEASURE.DEPTH, sl_device, low_res)
+                        depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
 
                     t_grab += (time.perf_counter() - t0)
 
-                    image = image_mats[i].get_data(sl_device)
+                    image = image_mats[i].get_data()
                     depths = ransac.plane.clean_depths(
-                        depth_mats[i].get_data(sl_device))
+                        depth_mats[i].get_data())
 
                     t0 = time.perf_counter()
 
@@ -496,46 +491,28 @@ def main():
 
                     t_ransac += (time.perf_counter() - t0)
 
-                    last_drive_ppc[i] = ransac.occu.create_point_cloud(
-                        ransac_output, depths)
-                    last_block_ppc[i] = ransac.occu.create_point_cloud(
-                        ransac_output != 1, depths
-                    )
+                    last_ransac_output[i] = ransac_output
 
-            if last_drive_ppc[i] is None or last_block_ppc[i] is None or last_real_coeffs[i] is None:
+            if last_ransac_output[i] is None or last_real_coeffs[i] is None:
                 continue
 
             half_angle_rad = np.deg2rad(angle_deg / 2)
             half_displacement_mm = displacement_cm * 10 / 2
             half_z_offset_mm = z_offset_cm * 10 / 2
 
+            sign = -1 if i == 0 else 1
+            pos = ransac.CameraPosition(
+                sign * half_displacement_mm,
+                sign * half_z_offset_mm,
+                -sign * half_angle_rad
+            )
+
             t0 = time.perf_counter()
 
-            drive_rpc = ransac.occu.pixel_to_real(
-                last_drive_ppc[i],
-                last_real_coeffs[i],
-                intr[i],
-                half_angle_rad * (1 if i == 0 else -1)
-            )
-            drive_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
-            drive_rpc[:, 2] += (-1 if i == 0 else 1) * half_z_offset_mm
-
-            block_rpc = ransac.occu.pixel_to_real(
-                last_block_ppc[i],
-                last_real_coeffs[i],
-                intr[i],
-                half_angle_rad * (1 if i == 0 else -1)
-            )
-            block_rpc[:, 0] += (-1 if i == 0 else 1) * half_displacement_mm
-            block_rpc[:, 2] += (-1 if i == 0 else 1) * half_z_offset_mm
-
-            drive_occ = ransac.occu.occupancy_grid(drive_rpc, drive_conf)
-            block_occ = ransac.occu.occupancy_grid(block_rpc, block_conf)
-
-            full_occ = ransac.occu.composite(drive_occ, block_occ)
+            full_occ = ransac.occu.oneshot(
+                last_ransac_output[i], last_real_coeffs[i], intr[i], conf, pos)
 
             t_occ += (time.perf_counter() - t0)
-
             occ_grids.append(full_occ)
 
         if len(occ_grids) < 2:
