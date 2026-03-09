@@ -17,11 +17,14 @@ import time
 import torch
 
 import pyzed.sl as sl
-import ransac_pt as ransac
-import ransac_pt.plane
-import ransac_pt.occu
+# import ransac_pt as ransac
+# import ransac_pt.plane
+# import ransac_pt.occu
 
-# torch.cuda.is_available = lambda: False # force CPU
+import ransac.plane
+import ransac.occu
+
+torch.cuda.is_available = lambda: False # force CPU
 
 if torch.cuda.is_available():
     sl_device = sl.MEM.GPU
@@ -343,6 +346,7 @@ cam = sl.Camera()
 def main():
     cams = []
     init = sl.InitParameters()
+    init.camera_resolution = sl.RESOLUTION.VGA
     init.depth_mode = sl.DEPTH_MODE.NEURAL
     init.async_image_retrieval = False
 
@@ -420,15 +424,16 @@ def main():
                     continue
 
                 cams[i].retrieve_image(
-                    image_mats[i], sl.VIEW.LEFT, sl.MEM.GPU, low_res)
+                    image_mats[i], sl.VIEW.LEFT, sl_device, low_res)
                 cams[i].retrieve_measure(
-                    depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.GPU, low_res)
+                    depth_mats[i], sl.MEASURE.DEPTH, sl_device, low_res)
 
                 t_grab += (time.perf_counter() - t0)
 
-                image = image_mats[i].get_data(sl.MEM.GPU)
+                image = image_mats[i].get_data(sl_device)
+                print(depth_mats)
                 depths = ransac.plane.clean_depths(
-                    depth_mats[i].get_data(sl.MEM.GPU))
+                    depth_mats[i].get_data(sl_device))
 
                 t0 = time.perf_counter()
 
@@ -465,15 +470,15 @@ def main():
                         continue
 
                     cams[i].retrieve_image(
-                        image_mats[i], sl.VIEW.LEFT, sl.MEM.CPU, low_res)
+                        image_mats[i], sl.VIEW.LEFT, sl_device, low_res)
                     cams[i].retrieve_measure(
-                        depth_mats[i], sl.MEASURE.DEPTH, sl.MEM.CPU, low_res)
+                        depth_mats[i], sl.MEASURE.DEPTH, sl_device, low_res)
 
                     t_grab += (time.perf_counter() - t0)
 
-                    image = image_mats[i].get_data()
+                    image = image_mats[i].get_data(sl_device)
                     depths = ransac.plane.clean_depths(
-                        depth_mats[i].get_data())
+                        depth_mats[i].get_data(sl_device))
 
                     t0 = time.perf_counter()
 
