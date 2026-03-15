@@ -112,7 +112,9 @@ def ground_plane(
         args = (pooled, tol, samples // processes)
         results = thread_pool.starmap(
             _ground_plane, [args for _ in range(processes)])
-        _, best_coeffs = max(results, key=lambda t: t[0])
+        run_best, run_coeffs = max(results, key=lambda t: t[0])
+        if run_best > best:
+            best_coeffs = run_coeffs
 
     best_coeffs[0] /= kernel[1]
     best_coeffs[1] /= kernel[0]
