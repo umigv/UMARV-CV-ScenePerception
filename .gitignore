@@ -1,5 +1,9 @@
 .DS_Store
 env
-*.MOV
+*.hdf5
 *.mp4
 *.pt
+*.MOV
+*.jpg
+*.png
+__pycache__
