@@ -40,8 +40,8 @@ class CurvedLanekeeping:
         pass
 
     def run(self):
-        cap = cv2.VideoCapture("data/right_turn_cropped.mp4")
-        self.hsv_obj = hsv("data/right_turn_cropped.mp4")
+        cap = cv2.VideoCapture("data/left_curved_road.MOV")
+        self.hsv_obj = hsv("data/left_curved_road.MOV")
 
         # "white": {
         #     "h_upper": 179,
@@ -61,7 +61,7 @@ class CurvedLanekeeping:
         # }
         # backup of values from json
 
-        # self.hsv_obj.tune("white")
+        self.hsv_obj.tune("white")
         # self.hsv_obj.tune("yellow")
         
         while cap.isOpened():
@@ -91,7 +91,6 @@ class CurvedLanekeeping:
         cap.release()
         cv2.destroyAllWindows()
         
-    # >>> change: run_frame now runs full pipeline (HSV + state machine) and returns results
     def run_frame(self, hsv_indentifier, frame):
         if self.hsv_obj is None:
             self.hsv_obj = hsv(hsv_indentifier)
@@ -106,7 +105,6 @@ class CurvedLanekeeping:
         cv2.imshow("Final Mask", self.final)
 
         return self.final, self.centroid
-    # <<< end of change
 
 def main():
     obj = CurvedLanekeeping(debug = False)

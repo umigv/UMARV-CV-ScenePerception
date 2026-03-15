@@ -1,0 +1,12 @@
+{
+    "data/left_curved_road.MOV": {
+        "white": {
+            "h_upper": 139,
+            "h_lower": 79,
+            "s_upper": 42,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 232
+        }
+    }
+}
