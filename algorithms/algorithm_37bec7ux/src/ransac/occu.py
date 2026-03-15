@@ -1,6 +1,6 @@
 # ground plane mask to occupancy grid
 
-from numba import njit
+# from numba import njit
 from ransac import *
 
 import ransac.plane
@@ -106,7 +106,7 @@ def fast_los_grid(merged, iters=10):
     return work
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def trace_and_fill(merged, i0, j0, i1, j1):
     # Bresenham walk from (i0,j0) -> (i1,j1)
     di = abs(i1 - i0)
