@@ -444,8 +444,8 @@ def main():
                     (1, 16),
                     0.15,
                     guess=px_coeffs_cache[i],
-                    pool,
-                    processes
+                    thread_pool=pool,
+                    processes=processes
                 )
 
                 real_coeffs = ransac.plane.real_coeffs(
