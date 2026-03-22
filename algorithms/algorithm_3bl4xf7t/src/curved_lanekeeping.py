@@ -20,6 +20,14 @@ class CurvedLanekeeping:
         self.width = None
         self.height = None
 
+        self.look_for_barrels = False
+
+        self.left_bounds = (0.2, 0.4)
+        self.right_bounds = (0.6, 0.8)
+        
+        self.vertical_min = 0.2
+        self.vertical_max = 0.8
+
         self.debug = debug
 
     def update_mask(self):
@@ -37,31 +45,51 @@ class CurvedLanekeeping:
         # cv2.imshow("Combined Image", self.final)
 
     def state_machine(self):
-        pass
+        best_left_point = None
+        min_left_y = self.vertical_max * self.height
+        best_right_point = None
+        min_right_y = self.vertical_max * self.height
+
+        cnts, _ = cv2.findContours(self.white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for contour in cnts:
+            for point in contour:
+                valid_left_point = point[0, 0] < self.left_bounds[1] * self.width and point[0, 0] > self.left_bounds[0] * self.width \
+                  and point[0, 1] > self.vertical_min * self.height and point[0, 1] < self.vertical_max * self.height
+                
+                valid_right_point = point[0, 0] < self.right_bounds[1] * self.width and point[0, 0] > self.right_bounds[0] * self.width \
+                  and point[0, 1] > self.vertical_max * self.height and point[0, 1] < self.vertical_max * self.height
+
+                if valid_left_point:
+                    if point[0, 1] < min_left_y:
+                        min_left_y = point[0, 1]
+                        best_left_point = (point[0, 0], point[0, 1])
+
+                if valid_right_point:
+                    if point[0, 1] < min_right_y:
+                        min_right_y = point[0, 1]
+                        best_right_point = (point[0, 0], point[0, 1])
+      
+        if best_left_point is not None and best_right_point is not None:    
+            self.centroid = (
+                (best_left_point[0] + best_right_point[0]) // 2,
+                (best_left_point[1] + best_right_point[1]) // 2
+            )
+        else:
+            self.centroid = (
+                self.width // 2,
+                self.height // 2
+            )
+
+        if self.debug:
+            cv2.circle(self.final, best_left_point, 10, 128, -1)
+            cv2.circle(self.final, best_right_point, 10, 128, -1)
 
     def run(self):
         cap = cv2.VideoCapture("data/left_curved_road.MOV")
         self.hsv_obj = hsv("data/left_curved_road.MOV")
 
-        # "white": {
-        #     "h_upper": 179,
-        #     "h_lower": 0,
-        #     "s_upper": 218,
-        #     "s_lower": 0,
-        #     "v_upper": 255,
-        #     "v_lower": 212
-        # },
-        # "yellow": {
-        #     "h_upper": 179,
-        #     "h_lower": 23,
-        #     "s_upper": 255,
-        #     "s_lower": 150,
-        #     "v_upper": 255,
-        #     "v_lower": 200
-        # }
-        # backup of values from json
-
-        self.hsv_obj.tune("white")
+        # self.hsv_obj.tune("white")
         # self.hsv_obj.tune("yellow")
         
         while cap.isOpened():
@@ -72,7 +100,38 @@ class CurvedLanekeeping:
                 self.update_mask()
                 self.state_machine()
 
-                cv2.circle(self.final, self.centroid, 5, 255, -1)
+                cv2.circle(self.final, self.centroid, 5, 128, -1)
+                if self.debug:
+                    left_min = int(self.left_bounds[0] * self.width)
+                    left_max = int(self.left_bounds[1] * self.width)
+
+                    right_min = int(self.right_bounds[0] * self.width)
+                    right_max = int(self.right_bounds[1] * self.width)
+
+                    y_min = int(self.vertical_min * self.height)
+                    y_max = int(self.vertical_max * self.height)
+
+                    cv2.line(self.final, (left_min, y_min),
+                        (left_min, y_max),
+                        128, 10)
+                    cv2.line(self.final, (left_max, y_min),
+                        (left_max, y_max),
+                        128, 10)
+                    cv2.line(self.final, (left_min, y_min), 
+                        (left_max, y_min), 128, 10)
+                    cv2.line(self.final, (left_min, y_max), 
+                        (left_max, y_max), 128, 10)
+                  
+                    cv2.line(self.final, (right_min, y_min),
+                        (right_min, y_max),
+                        128, 10)
+                    cv2.line(self.final, (right_max, y_min),
+                        (right_max, y_max),
+                        128, 10)
+                    cv2.line(self.final, (right_min, y_min), 
+                        (right_max, y_min), 128, 10)
+                    cv2.line(self.final, (right_min, y_max), 
+                        (right_max, y_max), 128, 10)
 
                 cv2.namedWindow("Final Mask", cv2.WINDOW_NORMAL)
                 cv2.imshow("Final Mask", self.final)
@@ -81,9 +140,6 @@ class CurvedLanekeeping:
                 cv2.namedWindow("White Mask", cv2.WINDOW_NORMAL)
                 cv2.imshow("White Mask", self.white_mask)
 
-                if self.debug:
-                    print()
-                
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
@@ -101,13 +157,13 @@ class CurvedLanekeeping:
         self.update_mask()
         self.state_machine()
 
-        cv2.circle(self.final, self.centroid, 5, 255, -1)
+        cv2.circle(self.final, self.centroid, 5, 128, -1)
         cv2.imshow("Final Mask", self.final)
 
         return self.final, self.centroid
 
 def main():
-    obj = CurvedLanekeeping(debug = False)
+    obj = CurvedLanekeeping(debug = True)
     obj.run()
 
 if __name__ == "__main__":
