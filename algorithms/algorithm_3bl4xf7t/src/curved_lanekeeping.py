@@ -22,8 +22,9 @@ class CurvedLanekeeping:
 
         self.look_for_barrels = False
 
-        self.left_bounds = (0.2, 0.4)
-        self.right_bounds = (0.6, 0.8)
+        # These should be kept symmetric
+        self.left_bounds = (0.15, 0.45)
+        self.right_bounds = (0.55, 0.85)
         
         self.vertical_min = 0.2
         self.vertical_max = 0.8
@@ -58,7 +59,7 @@ class CurvedLanekeeping:
                   and point[0, 1] > self.vertical_min * self.height and point[0, 1] < self.vertical_max * self.height
                 
                 valid_right_point = point[0, 0] < self.right_bounds[1] * self.width and point[0, 0] > self.right_bounds[0] * self.width \
-                  and point[0, 1] > self.vertical_max * self.height and point[0, 1] < self.vertical_max * self.height
+                  and point[0, 1] > self.vertical_min * self.height and point[0, 1] < self.vertical_max * self.height
 
                 if valid_left_point:
                     if point[0, 1] < min_left_y:
@@ -85,6 +86,38 @@ class CurvedLanekeeping:
             cv2.circle(self.final, best_left_point, 10, 128, -1)
             cv2.circle(self.final, best_right_point, 10, 128, -1)
 
+    def show_search_boxes(self, color: int) -> None:
+        left_min = int(self.left_bounds[0] * self.width)
+        left_max = int(self.left_bounds[1] * self.width)
+
+        right_min = int(self.right_bounds[0] * self.width)
+        right_max = int(self.right_bounds[1] * self.width)
+
+        y_min = int(self.vertical_min * self.height)
+        y_max = int(self.vertical_max * self.height)
+
+        cv2.line(self.final, (left_min, y_min),
+            (left_min, y_max),
+            128, 10)
+        cv2.line(self.final, (left_max, y_min),
+            (left_max, y_max),
+            128, 10)
+        cv2.line(self.final, (left_min, y_min), 
+            (left_max, y_min), 128, 10)
+        cv2.line(self.final, (left_min, y_max), 
+            (left_max, y_max), 128, 10)
+      
+        cv2.line(self.final, (right_min, y_min),
+            (right_min, y_max),
+            128, 10)
+        cv2.line(self.final, (right_max, y_min),
+            (right_max, y_max),
+            128, 10)
+        cv2.line(self.final, (right_min, y_min), 
+            (right_max, y_min), 128, 10)
+        cv2.line(self.final, (right_min, y_max), 
+            (right_max, y_max), 128, 10)
+
     def run(self):
         cap = cv2.VideoCapture("data/left_curved_road.MOV")
         self.hsv_obj = hsv("data/left_curved_road.MOV")
@@ -100,38 +133,10 @@ class CurvedLanekeeping:
                 self.update_mask()
                 self.state_machine()
 
-                cv2.circle(self.final, self.centroid, 5, 128, -1)
                 if self.debug:
-                    left_min = int(self.left_bounds[0] * self.width)
-                    left_max = int(self.left_bounds[1] * self.width)
-
-                    right_min = int(self.right_bounds[0] * self.width)
-                    right_max = int(self.right_bounds[1] * self.width)
-
-                    y_min = int(self.vertical_min * self.height)
-                    y_max = int(self.vertical_max * self.height)
-
-                    cv2.line(self.final, (left_min, y_min),
-                        (left_min, y_max),
-                        128, 10)
-                    cv2.line(self.final, (left_max, y_min),
-                        (left_max, y_max),
-                        128, 10)
-                    cv2.line(self.final, (left_min, y_min), 
-                        (left_max, y_min), 128, 10)
-                    cv2.line(self.final, (left_min, y_max), 
-                        (left_max, y_max), 128, 10)
-                  
-                    cv2.line(self.final, (right_min, y_min),
-                        (right_min, y_max),
-                        128, 10)
-                    cv2.line(self.final, (right_max, y_min),
-                        (right_max, y_max),
-                        128, 10)
-                    cv2.line(self.final, (right_min, y_min), 
-                        (right_max, y_min), 128, 10)
-                    cv2.line(self.final, (right_min, y_max), 
-                        (right_max, y_max), 128, 10)
+                    self.show_search_boxes(150)
+                    
+                cv2.circle(self.final, self.centroid, 5, 100, -1)
 
                 cv2.namedWindow("Final Mask", cv2.WINDOW_NORMAL)
                 cv2.imshow("Final Mask", self.final)
@@ -157,7 +162,7 @@ class CurvedLanekeeping:
         self.update_mask()
         self.state_machine()
 
-        cv2.circle(self.final, self.centroid, 5, 128, -1)
+        cv2.circle(self.final, self.centroid, 5, 100, -1)
         cv2.imshow("Final Mask", self.final)
 
         return self.final, self.centroid
