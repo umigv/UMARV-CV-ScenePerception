@@ -199,7 +199,7 @@ class CurvedLanekeeping:
         return self.final, self.centroid
 
 def main():
-    obj = CurvedLanekeeping(debug = True)
+    obj = CurvedLanekeeping(debug = False)
     obj.run()
 
 if __name__ == "__main__":
