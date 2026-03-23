@@ -4,7 +4,10 @@ from hsv import hsv
 
 
 class CurvedLanekeeping:
-    def __init__(self, debug = False):
+    # Left and right bounds should be kept symmetric
+    def __init__(self, debug: bool = False, left_min: float = 0.15, left_max: float = 0.45,
+                 right_min: float = 0.55, right_max: float = 0.85,
+                 vertical_min: float = 0.2, vertical_max: float = 0.8):
         self.image = None
         self.hsv_image = None
 
@@ -22,9 +25,8 @@ class CurvedLanekeeping:
 
         self.look_for_barrels = False
 
-        # These should be kept symmetric
-        self.left_bounds = (0.15, 0.45)
-        self.right_bounds = (0.55, 0.85)
+        self.left_bounds = (left_min, left_max)
+        self.right_bounds = (right_min, right_max)
         
         self.vertical_min = 0.2
         self.vertical_max = 0.8
@@ -136,7 +138,7 @@ class CurvedLanekeeping:
                 if self.debug:
                     self.show_search_boxes(150)
                     
-                cv2.circle(self.final, self.centroid, 5, 100, -1)
+                cv2.circle(self.final, self.centroid, 5, 255, -1)
 
                 cv2.namedWindow("Final Mask", cv2.WINDOW_NORMAL)
                 cv2.imshow("Final Mask", self.final)
@@ -162,7 +164,7 @@ class CurvedLanekeeping:
         self.update_mask()
         self.state_machine()
 
-        cv2.circle(self.final, self.centroid, 5, 100, -1)
+        cv2.circle(self.final, self.centroid, 5, 255, -1)
         cv2.imshow("Final Mask", self.final)
 
         return self.final, self.centroid
