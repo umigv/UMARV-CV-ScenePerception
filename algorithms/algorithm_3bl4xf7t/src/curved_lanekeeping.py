@@ -5,9 +5,10 @@ from hsv import hsv
 
 class CurvedLanekeeping:
     # Left and right bounds should be kept symmetric
-    def __init__(self, debug: bool = False, left_min: float = 0.15, left_max: float = 0.45,
-                 right_min: float = 0.55, right_max: float = 0.85,
-                 vertical_min: float = 0.2, vertical_max: float = 0.8):
+    def __init__(self, debug: bool = False, barrels: bool = True,
+                 left_bounds: tuple[float, float] = (0.15, 0.45),
+                 right_bounds: tuple[float, float] = (0.55, 0.85),
+                 vertical_bounds: tuple[float, float] = (0.2, 0.8)):
         self.image = None
         self.hsv_image = None
 
@@ -23,19 +24,17 @@ class CurvedLanekeeping:
         self.width = None
         self.height = None
 
-        self.look_for_barrels = False
+        self.look_for_barrels = barrels
 
-        self.left_bounds = (left_min, left_max)
-        self.right_bounds = (right_min, right_max)
-        
-        self.vertical_min = 0.2
-        self.vertical_max = 0.8
+        self.left_bounds = left_bounds
+        self.right_bounds = right_bounds
+        self.vertical_bounds = vertical_bounds
 
         self.debug = debug
 
     def update_mask(self):
         #defining the ranges for HSV values
-        self.final, dict = self.hsv_obj.get_mask(self.image, yolo_barrels=self.look_for_barrels and (not self.debug))
+        self.final, dict = self.hsv_obj.get_mask(self.image, yolo_barrels=self.look_for_barrels)
 
         # print(dict)
         
@@ -48,37 +47,67 @@ class CurvedLanekeeping:
         # cv2.imshow("Combined Image", self.final)
 
     def state_machine(self):
+        # looking for barrel
+        if self.hsv_obj.barrel_boxes is not None:
+            for segment in self.hsv_obj.barrel_boxes:
+                x_min, y_min, x_max, y_max = segment
+                vertices = np.array([
+                    [x_min * self.width, y_min * self.height],
+                    [x_max * self.width, y_min * self.height],
+                    [x_max * self.width, y_max * self.height],
+                    [x_min * self.width, y_max * self.height]
+                ], dtype=np.int32)
+                
+                if(y_min * self.height > self.height // 2):
+                    midpoint = (x_max * self.width) - (x_min * self.width)
+                    if(midpoint > self.width // 4 and midpoint < (self.width - (self.width // 4))):
+                        self.centroid = midpoint
+                        return
+
+        # normal state
+        left_min = int(self.left_bounds[0] * self.width)
+        left_max = int(self.left_bounds[1] * self.width)
+
+        right_min = int(self.right_bounds[0] * self.width)
+        right_max = int(self.right_bounds[1] * self.width)
+
+        vert_min = int(self.vertical_bounds[0] * self.height)
+        vert_max = int(self.vertical_bounds[1] * self.height)
+
         best_left_point = None
-        min_left_y = self.vertical_max * self.height
+        min_left_y = vert_max
         best_right_point = None
-        min_right_y = self.vertical_max * self.height
+        min_right_y = vert_max
 
         cnts, _ = cv2.findContours(self.white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in cnts:
             for point in contour:
-                valid_left_point = point[0, 0] < self.left_bounds[1] * self.width and point[0, 0] > self.left_bounds[0] * self.width \
-                  and point[0, 1] > self.vertical_min * self.height and point[0, 1] < self.vertical_max * self.height
+                x = point[0, 0]
+                y = point[0, 1]
+
+                valid_left_point = x < left_max and x > left_min \
+                  and y > vert_min and y < vert_max
                 
-                valid_right_point = point[0, 0] < self.right_bounds[1] * self.width and point[0, 0] > self.right_bounds[0] * self.width \
-                  and point[0, 1] > self.vertical_min * self.height and point[0, 1] < self.vertical_max * self.height
+                valid_right_point = x < right_max and x > right_min \
+                  and y > vert_min and y < vert_max
 
                 if valid_left_point:
-                    if point[0, 1] < min_left_y:
-                        min_left_y = point[0, 1]
-                        best_left_point = (point[0, 0], point[0, 1])
+                    if y < min_left_y:
+                        min_left_y = y
+                        best_left_point = (x, y)
 
                 if valid_right_point:
-                    if point[0, 1] < min_right_y:
-                        min_right_y = point[0, 1]
-                        best_right_point = (point[0, 0], point[0, 1])
+                    if y < min_right_y:
+                        min_right_y = y
+                        best_right_point = (x, y)
       
         if best_left_point is not None and best_right_point is not None:    
             self.centroid = (
                 (best_left_point[0] + best_right_point[0]) // 2,
                 (best_left_point[1] + best_right_point[1]) // 2
             )
-        else:
+        else: # fallback
             self.centroid = (
                 self.width // 2,
                 self.height // 2
@@ -95,30 +124,30 @@ class CurvedLanekeeping:
         right_min = int(self.right_bounds[0] * self.width)
         right_max = int(self.right_bounds[1] * self.width)
 
-        y_min = int(self.vertical_min * self.height)
-        y_max = int(self.vertical_max * self.height)
+        vert_min = int(self.vertical_bounds[0] * self.height)
+        vert_max = int(self.vertical_bounds[1] * self.height)
 
-        cv2.line(self.final, (left_min, y_min),
-            (left_min, y_max),
-            128, 10)
-        cv2.line(self.final, (left_max, y_min),
-            (left_max, y_max),
-            128, 10)
-        cv2.line(self.final, (left_min, y_min), 
-            (left_max, y_min), 128, 10)
-        cv2.line(self.final, (left_min, y_max), 
-            (left_max, y_max), 128, 10)
+        cv2.line(self.final, (left_min, vert_min),
+            (left_min, vert_max),
+            color, 10)
+        cv2.line(self.final, (left_max, vert_min),
+            (left_max, vert_max),
+            color, 10)
+        cv2.line(self.final, (left_min, vert_min), 
+            (left_max, vert_min), color, 10)
+        cv2.line(self.final, (left_min, vert_max), 
+            (left_max, vert_max), color, 10)
       
-        cv2.line(self.final, (right_min, y_min),
-            (right_min, y_max),
-            128, 10)
-        cv2.line(self.final, (right_max, y_min),
-            (right_max, y_max),
-            128, 10)
-        cv2.line(self.final, (right_min, y_min), 
-            (right_max, y_min), 128, 10)
-        cv2.line(self.final, (right_min, y_max), 
-            (right_max, y_max), 128, 10)
+        cv2.line(self.final, (right_min, vert_min),
+            (right_min, vert_max),
+            color, 10)
+        cv2.line(self.final, (right_max, vert_min),
+            (right_max, vert_max),
+            color, 10)
+        cv2.line(self.final, (right_min, vert_min), 
+            (right_max, vert_min), color, 10)
+        cv2.line(self.final, (right_min, vert_max), 
+            (right_max, vert_max), color, 10)
 
     def run(self):
         cap = cv2.VideoCapture("data/left_curved_road.MOV")
