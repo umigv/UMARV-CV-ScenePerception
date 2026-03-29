@@ -5,7 +5,7 @@ import json
 from ultralytics import YOLO
 
 class hsv:
-    def __init__(self, video_path):
+    def __init__(self, video_path, barrel_mode = "YOLO"):
         self.hsv_image = None
         self.hsv_filters = {}  # Map of filter names to HSV bounds
         self.setup = False
@@ -19,6 +19,7 @@ class hsv:
         self.YOLO_barrels = False
         self.barrel_model = YOLO("data/obstacles.pt")
         self.lane_model = YOLO("data/laneswithcontrast.pt")
+        self.barrel_mode = barrel_mode
         self.load_hsv_values()
         
         
@@ -118,21 +119,83 @@ class hsv:
                 print(f"Video '{self.video_path}' does not exist in the JSON file.")
         else:
             print("No HSV values file found.")
-                
+            
     def get_barrels_YOLO(self):
-        # Get the driveable area of one frame and return the inverted mask
-        results = self.barrel_model.predict(self.image, conf=0.7)[0]
-        self.barrel_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
-        if results.boxes is not None:
-            self.barrel_boxes = results.boxes.xyxyn
-        else:
-            self.barrel_boxes = None
-        if(results.masks is not None):
-            for i in range(len(results.masks.xy)):
-                    segment = results.masks.xy[i]
-                    segment_array = np.array([segment], dtype=np.int32)
-                    cv2.fillPoly(self.barrel_mask, [segment_array], color=(255, 0, 0))
-        return self.barrel_mask
+        if self.barrel_mode == "YOLO":
+          # Get the driveable area of one frame and return the inverted mask
+          results = self.barrel_model.predict(self.image, conf=0.7)[0]
+          self.barrel_mask = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.uint8)
+          if results.boxes is not None:
+              self.barrel_boxes = results.boxes.xyxyn
+          else:
+              self.barrel_boxes = None
+          if(results.masks is not None):
+              for i in range(len(results.masks.xy)):
+                      segment = results.masks.xy[i]
+                      segment_array = np.array([segment], dtype=np.int32)
+                      cv2.fillPoly(self.barrel_mask, [segment_array], color=(255, 0, 0))
+          return self.barrel_mask
+        else: # mimic barrel_boxes from YOLO and generate mask the same way
+            if not (self.barrel_mode in self.hsv_filters):
+                # assume they want an orange-like color (TODO: find a good default color)
+                self.hsv_filters[self.barrel_mode] = {
+                    'h_upper': 29, 'h_lower': 0,
+                    's_upper': 51, 's_lower': 0,
+                    'v_upper': 255, 'v_lower': 137
+                }
+
+            barrel_filter = self.hsv_filters[self.barrel_mode]
+            lower_bound = np.array([barrel_filter["h_lower"], barrel_filter['s_lower'], barrel_filter['v_lower']])
+            upper_bound = np.array([barrel_filter['h_upper'], barrel_filter['s_upper'], barrel_filter['v_upper']])
+            
+            mask = cv2.inRange(self.hsv_image, lower_bound, upper_bound)
+            mask = cv2.erode(mask, None, iterations=2)
+            mask = cv2.dilate(mask, None, iterations=4)
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            barrel_boxes = []
+            width = self.hsv_image[1]
+            height = self.hsv_image[0]
+
+            for cnt in contours:
+                if cv2.contourArea(cnt) > 200:
+                    x_min = 0
+                    x_max = width - 1
+                    y_min = 0
+                    y_max = height - 1
+
+                    for point in cnt:
+                        x = point[0, 0]
+                        y = point[0, 1]
+                        
+                        if x < x_min:
+                            x_min = x
+                        if x > x_max:
+                            x_max = x
+                        if y < y_min:
+                            y_min = x
+                        if y > y_max:
+                            y_max = x
+
+                    barrel_boxes.append([x_min / width, y_min / height, x_max / width, y_max / height]) 
+
+            if not barrel_boxes:
+                self.barrel_mask = np.zeros((width, height), dtype=np.uint8)
+                self.barrel_boxes = None
+                return self.barrel_mask
+            else:
+                for barrel in barrel_boxes:
+                    top_left = [int(barrel[0] * width), int(barrel[1] * height)]
+                    top_right = [int(barrel[2] * width), int(barrel[1] * height)]
+                    bottom_left = [int(barrel[0] * width), int(barrel[3] * height)]
+                    bottom_right = [int(barrel[2] * width), int(barrel[3] * height)]
+
+                    barrel_vertices = np.array([top_left, top_right, bottom_left, bottom_right])
+                    cv2.fillPoly(self.barrel_mask, [barrel_vertices], color=(255, 0, 0))
+
+                self.barrel_boxes = barrel_boxes
+                return self.barrel_mask
+                    
     
     def adjust_gamma(self, gamma=0.4):
         inv_gamma = 1.0 / gamma

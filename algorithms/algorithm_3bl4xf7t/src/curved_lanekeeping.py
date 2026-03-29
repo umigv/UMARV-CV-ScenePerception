@@ -49,6 +49,7 @@ class CurvedLanekeeping:
     def state_machine(self):
         # looking for barrel
         if self.hsv_obj.barrel_boxes is not None:
+            print(self.hsv_obj.barrel_boxes)
             for segment in self.hsv_obj.barrel_boxes:
                 x_min, y_min, x_max, y_max = segment
                 vertices = np.array([
