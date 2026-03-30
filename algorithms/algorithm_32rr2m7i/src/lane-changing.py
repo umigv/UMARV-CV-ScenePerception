@@ -12,10 +12,10 @@ class ReallyGoodStateMachine:
 
         # these two captures are 1 : from the google drive #9, 
         # and the other is the mirrored version of the same video
-        self.cap_1 = cv2.VideoCapture("data/9 function test pedestrian detection lane change & barrel stop.MP4") 
-        self.cap_3 = cv2.VideoCapture("data/mirrored_9.mp4") 
-        self.cap_4 = cv2.VideoCapture("data/20260322_172804.mp4") 
-        self.cap = cv2.VideoCapture("data/20260322_172726.mp4") 
+        self.cap = cv2.VideoCapture("data/9 function test pedestrian detection lane change & barrel stop.MP4") 
+        self.cap_1 = cv2.VideoCapture("data/mirrored_9.mp4") 
+        self.cap_5 = cv2.VideoCapture("data/20260322_172804.mp4") 
+        self.cap_ = cv2.VideoCapture("data/20260322_172726.mp4") 
         #
 
         # Frame counts are for reducing frame rate
@@ -35,11 +35,15 @@ class ReallyGoodStateMachine:
         #starts in looking for people state
         self.state = self.state_1
 
+        self.entered_sentinel = False
+        self.exited_sentinel = False
+
     # Determines whether a lane change should be from Left->Right or Right->Left
     # Determines this through count of white pixels 
     # More white pixels on side x means leaving side x to go to lane on other side of the screen
     # ex: (less white on right side : lane change Right->Left)
-    def set_right_to_left(self):
+    # True means 
+    def set_right_or_left(self):
         ret, img = self.cap.read()
         results = self.lines_model(img)
         full_mask = np.zeros(img.shape[:2], dtype=np.uint8)
@@ -70,9 +74,9 @@ class ReallyGoodStateMachine:
         white_pixel_r = cv2.countNonZero(mask_r)
         
         if white_pixel_l < white_pixel_r:
-            print('right lane change')
+            print('right->left lane change')
             return False
-        print('left lane change')
+        print('left->right lane change')
         return True
     
     def get_mask(self, model, img, mode="person"):
@@ -107,11 +111,11 @@ class ReallyGoodStateMachine:
                         m = cv2.bitwise_or(m, m1)
                         label = cv2.bitwise_or(label, l)
                         
-                return m, label   
+                return m, label
         return m, label
 
     #Changes Lanes
-    def change_lanes(self, capture, img, y_waypoint, prev_x):
+    def change_lanes(self, img, y_waypoint, prev_x):
         
     
         full_mask1, lines_label = self.get_mask(self.lines_model, img, mode="lines")
@@ -134,14 +138,14 @@ class ReallyGoodStateMachine:
         lanes_img[lanes_mask > 0.5] = 255 
 
         if (self.right_to_left):
-            x  = self.find_waypoint_left(y_waypoint, lanes_img, prev_x)
+            x  = self.find_waypoint_left(y_waypoint, lanes_img, prev_x )
         else :
             x = self.find_waypoint_right(y_waypoint, lanes_img, prev_x)
         done_ = False
 
         width = img.shape[1]
         height, width = img.shape[:2]
-        if (x > width * (0.8)) and (x < (width - 150)):
+        if (x > (width * (0.8))) and (x < (width - 150)):
             # Look for barrel being big enough = at barrel
             barrel_results = full_mask2
             for result in barrel_results:
@@ -165,10 +169,9 @@ class ReallyGoodStateMachine:
         
         return done_, x, full_img
 
-
     # Finds pedestrian in lane and plots the pedestrian box as well as returning whether they are in range
     #
-    def sees_pedestrian_in_lane(self, capture, img):
+    def sees_pedestrian_in_lane(self, img):
         
         results = self.person_model(img)
         py2 = 0
@@ -220,13 +223,22 @@ class ReallyGoodStateMachine:
         if(x_values.size > 0):
             if(np.max(x_values) > int(width/3)):
                 x = np.max(x_values)
-            
+                return int(x - (width * 3/8))
             
 
-        if(x == SENTINEL):
+        if(x == SENTINEL and not self.exited_sentinel):
+                self.entered_sentinel = True
                 x = int (width * (0.75))
                 return x
-        return int(x - (width/3))
+        
+
+        if(self.entered_sentinel):
+            self.exited_sentinel = True
+        if self.exited_sentinel:
+            return int(prev_x )
+        # - (width/3)
+
+        
 
     def find_waypoint_left(self, y_in, img, prev_x):
         height, width = img.shape
@@ -240,15 +252,23 @@ class ReallyGoodStateMachine:
         if(x_values.size > 0):
             if(np.min(x_values) < int(width * 2/3)):
                 x = np.min(x_values)
-                    
+                if(self.entered_sentinel):
+                    self.exited_sentinel = True
+                return int(x + (width * 3/8))
+       
         # Mirror: If nothing found, default to the left-side equivalent (30%)
-        if x == SENTINEL:
+        if x == SENTINEL and not self.exited_sentinel:
+            self.entered_sentinel = True
             x = int(width * 0.25)
             return x
         
         # Mirror: Instead of subtracting 600 (moving left), 
         # add 600 to move right toward the center
-        return int(x + (width /3))
+        
+        if self.exited_sentinel:
+            return int(prev_x)
+        #  + (width/3)
+        
 
     def run(self):
         running = True
@@ -260,11 +280,11 @@ class ReallyGoodStateMachine:
             if not ret:
                 break
             height, width = img.shape[:2]
-            if(self.right_to_left):
-                prev_x = int(width * 3/4)
-            else:
-                prev_x = int(width/4)
-            
+            # if(self.right_to_left):
+            #     prev_x = int(width * 3/4)
+            # else:
+            #     prev_x = int(width/4)
+            prev_x = int(width/2)
             self.frame_count += 1
         
             if self.frame_count % self.process_per_frame != 0:
@@ -272,7 +292,7 @@ class ReallyGoodStateMachine:
 
             # State Logic
             if(self.state == self.state_1):
-                see_pedestrian, y_waypoint, x_waypoint = self.sees_pedestrian_in_lane(self.cap, img)
+                see_pedestrian, y_waypoint, x_waypoint = self.sees_pedestrian_in_lane(img)
                 self.add_waypoint(y_waypoint, img, x_waypoint)
                 if(see_pedestrian):
                     print("PERSON DETECTED")
@@ -282,10 +302,11 @@ class ReallyGoodStateMachine:
 
              
             elif(self.state == self.state_2):
+                
                 if(not one_waypoint_placed):
                     self.add_waypoint(y_waypoint,img, x_waypoint)
                     one_waypoint_placed = True
-                done, x_waypoint, full_mask = self.change_lanes(self.cap, img, y_waypoint,prev_x)
+                done, x_waypoint, full_mask = self.change_lanes( img, y_waypoint,prev_x)
                 self.add_waypoint(y_waypoint,img, x_waypoint)
                 print(f"x_waypoint : {x_waypoint}")
                 prev_x = x_waypoint
@@ -308,5 +329,5 @@ class ReallyGoodStateMachine:
 
 
 machine = ReallyGoodStateMachine()
-machine.right_to_left = machine.set_right_to_left()
+machine.right_to_left = machine.set_right_or_left()
 machine.run()
