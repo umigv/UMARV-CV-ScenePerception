@@ -19,7 +19,7 @@ class hsv:
         self.YOLO_barrels = False
         self.barrel_model = YOLO("data/obstacles.pt")
         self.lane_model = YOLO("data/laneswithcontrast.pt")
-        self.barrel_mode = barrel_mode
+        self.barrel_mode = barrel_mode # "YOLO" or "[filter name]"
         self.load_hsv_values()
         
         
@@ -135,13 +135,14 @@ class hsv:
                       segment_array = np.array([segment], dtype=np.int32)
                       cv2.fillPoly(self.barrel_mask, [segment_array], color=(255, 0, 0))
           return self.barrel_mask
+        
         else: # mimic barrel_boxes from YOLO and generate mask the same way
             if not (self.barrel_mode in self.hsv_filters):
-                # assume they want an orange-like color (TODO: find a good default color)
+                # assume they want an orange-like color (TODO: find a better good default color)
                 self.hsv_filters[self.barrel_mode] = {
-                    'h_upper': 29, 'h_lower': 0,
-                    's_upper': 51, 's_lower': 0,
-                    'v_upper': 255, 'v_lower': 137
+                    'h_upper': 35, 'h_lower': 35,
+                    's_upper': 100, 's_lower': 80,
+                    'v_upper': 255, 'v_lower': 200
                 }
 
             barrel_filter = self.hsv_filters[self.barrel_mode]
@@ -177,7 +178,7 @@ class hsv:
                         if y > y_max:
                             y_max = x
 
-                    barrel_boxes.append([x_min / width, y_min / height, x_max / width, y_max / height]) 
+                    barrel_boxes.append([x_min / width, y_min / height, x_max / width, y_max / height]) # these are normalized apparently
 
             if not barrel_boxes:
                 self.barrel_mask = np.zeros((width, height), dtype=np.uint8)
