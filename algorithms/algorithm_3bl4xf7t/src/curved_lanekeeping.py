@@ -173,8 +173,8 @@ class CurvedLanekeeping:
                 self.update_mask()
                 self.state_machine()
 
-                if self.debug:
-                    self.show_search_boxes(150)
+                # if self.debug:
+                #     self.show_search_boxes(150)
                     
                 cv2.circle(self.final, self.centroid, 5, 255, -1)
 
@@ -214,7 +214,7 @@ class CurvedLanekeeping:
         return self.final, self.centroid
 
 def main():
-    obj = CurvedLanekeeping(debug = False, barrel_mode = "orange")
+    obj = CurvedLanekeeping(debug = True, barrel_mode = "orange")
     obj.run()
 
 if __name__ == "__main__":

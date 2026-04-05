@@ -183,9 +183,7 @@ class hsv:
 
                     current_box = [x_min / width, y_min / height, x_max / width, y_max / height] # these are normalized apparently
                     barrel_boxes.append(current_box)
-                    # cv2.drawContours(self.barrel_mask, [cnt], -1, 255, thickness=cv2.FILLED)
-
-                    # cv2.drawContours(self.final, [cnt], -1, 255, thickness=cv2.FILLED)
+                    cv2.drawContours(self.barrel_mask, [cnt], -1, 255, thickness=cv2.FILLED)
 
             if not barrel_boxes:
                 self.barrel_boxes = None
@@ -194,15 +192,6 @@ class hsv:
                 print()
                 return self.barrel_mask
             else:
-                for barrel in barrel_boxes:
-                    top_left = [int(barrel[0] * width), int(barrel[1] * height)]
-                    top_right = [int(barrel[2] * width), int(barrel[1] * height)]
-                    bottom_left = [int(barrel[0] * width), int(barrel[3] * height)]
-                    bottom_right = [int(barrel[2] * width), int(barrel[3] * height)]
-
-                    barrel_vertices = np.array([top_left, top_right, bottom_left, bottom_right])
-                    cv2.fillPoly(self.barrel_mask, [barrel_vertices], color=(255, 0, 0))
-
                 self.barrel_boxes = barrel_boxes
                 print(f"barrel_mode filter: {self.barrel_mode}")
                 print(f"{len(self.barrel_boxes)} contours found")
