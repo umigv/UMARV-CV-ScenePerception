@@ -12,13 +12,15 @@ class ReallyGoodStateMachine:
 
         # these two captures are 1 : from the google drive #9, 
         # and the other is the mirrored version of the same video
-        self.cap = cv2.VideoCapture("data/9 function test pedestrian detection lane change & barrel stop.MP4") 
+        self.cap_ = cv2.VideoCapture("data/9 function test pedestrian detection lane change & barrel stop.MP4") 
         self.cap_1 = cv2.VideoCapture("data/mirrored_9.mp4") 
         self.cap_5 = cv2.VideoCapture("data/20260322_172804.mp4") 
         self.cap_ = cv2.VideoCapture("data/20260322_172726.mp4") 
+        self.cap = cv2.VideoCapture("data/HD2K_SN36466710_18-50-10.mp4") 
+        self.cap__ = cv2.VideoCapture("data/HD2K_SN36466710_18-51-17.mp4") 
         #
 
-        # Frame counts are for reducing frame rate
+        # Frame counts are for reducing frame rate``
         self.frame_count = 0
         self.process_per_frame = 3  
         self.right_to_left = True
@@ -43,41 +45,78 @@ class ReallyGoodStateMachine:
     # More white pixels on side x means leaving side x to go to lane on other side of the screen
     # ex: (less white on right side : lane change Right->Left)
     # True means 
-    def set_right_or_left(self):
+    def set_right_to_left(self):
         ret, img = self.cap.read()
-        results = self.lines_model(img)
-        full_mask = np.zeros(img.shape[:2], dtype=np.uint8)
-            
         height, width = img.shape[:2]
-        result = results[0]
+        img = img[:, int(width/2) : width]
+        height, width = img.shape[:2]
+        img = img[:int(height * 1/4), :]
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        lower_yellow = np.array([23,96,231])
+        upper_yellow = np.array([179,255,255])
+        yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
         
-        if result.masks is not None:
-                # Loop through each detected object
-                for mask, cls in zip(result.masks.data, result.boxes.cls):
-                    if int(cls) == 0:
-                        # result.masks.data is usually lower resolution, 
-                        # we convert to numpy and resize to match original image
-                        m = mask.cpu().numpy()
-                        m = cv2.resize(m, (img.shape[1], img.shape[0]))
+        middle = int(width/2)
+        left = yellow_mask[:, :middle]
+        right = yellow_mask[:, middle:width]
+        left_count = cv2.countNonZero(left)
+        right_count = cv2.countNonZero(right)
+        
+        result = cv2.bitwise_and(img, img, mask=yellow_mask)
+        
+        
+        # Wait 1ms and check if 'q' is pressed
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break  
+        # blank_image = np.zeros((width, height, 3))
+        
+
+        # blank = cv2.bitwise_or(img, img, left)
+        # blank_2 = cv2.bitwise_or(img_2, img_2, right)
+        cv2.imshow("result", result)
+        # cv2.imshow(img, "left")
+        # cv2.imshow(img_2, "right")
+
+        if(left_count > right_count):
+            print("Right to left= True")
+            return True
+        print("Right to left= False")
+        return False
+
+
+        # results = self.lines_model(img)
+        # full_mask = np.zeros(img.shape[:2], dtype=np.uint8)
+            
+        # height, width = img.shape[:2]
+        # result = results[0]
+        
+        # if result.masks is not None:
+        #         # Loop through each detected object
+        #         for mask, cls in zip(result.masks.data, result.boxes.cls):
+        #             if int(cls) == 0:
+        #                 # result.masks.data is usually lower resolution, 
+        #                 # we convert to numpy and resize to match original image
+        #                 m = mask.cpu().numpy()
+        #                 m = cv2.resize(m, (img.shape[1], img.shape[0]))
                         
-                        # Add this object's pixels to our full mask
-                        full_mask[m > 0.5] = 255        
+        #                 # Add this object's pixels to our full mask
+        #                 full_mask[m > 0.5] = 255        
         
 
 
-        mid = width // 2
+        # mid = width // 2
 
-        mask_l = full_mask[:, 0:mid]
-        mask_r = full_mask[:, mid:width]
+        # mask_l = full_mask[:, 0:mid]
+        # mask_r = full_mask[:, mid:width]
         
-        white_pixel_l = cv2.countNonZero(mask_l)
-        white_pixel_r = cv2.countNonZero(mask_r)
+        # white_pixel_l = cv2.countNonZero(mask_l)
+        # white_pixel_r = cv2.countNonZero(mask_r)
         
-        if white_pixel_l < white_pixel_r:
-            print('right->left lane change')
-            return False
-        print('left->right lane change')
-        return True
+        # if white_pixel_l > white_pixel_r:
+        #     print('left->right lane change')    
+        #     return False
+        # print('right->left lane change')
+        # return True
     
     def get_mask(self, model, img, mode="person"):
         results = model(img, classes = 0)
@@ -145,7 +184,7 @@ class ReallyGoodStateMachine:
 
         width = img.shape[1]
         height, width = img.shape[:2]
-        if (x > (width * (0.8))) and (x < (width - 150)):
+        if (x > int(width * (0.8))) and (x < (width - 150)):
             # Look for barrel being big enough = at barrel
             barrel_results = full_mask2
             for result in barrel_results:
@@ -156,13 +195,14 @@ class ReallyGoodStateMachine:
                 for box, confidence, class_id in zip(boxes, confidences, class_ids):
                     BARREL_ID = 0
                     px1, py1, px2, py2 = map(int, box)
+                    # cv2.rectangle(img, )
                     if class_id == BARREL_ID and confidence > 0.7:
                         
                         print("BARREL")
                         height, width = img.shape[:2]
                         size_barrel = (px2-px1)/(width/3)
                         cv2.rectangle(img, (px1, py1), (px2, py2), (0, 255, 0), 2)
-                        if size_barrel > 0.3:
+                        if size_barrel > 0.1:
                             print("barrel within range")
                             done_ = True
         
@@ -175,6 +215,7 @@ class ReallyGoodStateMachine:
         
         results = self.person_model(img)
         py2 = 0
+        px1 = 0
 
         for results in results:
             boxes = results.boxes.xyxy.tolist()
@@ -223,7 +264,7 @@ class ReallyGoodStateMachine:
         if(x_values.size > 0):
             if(np.max(x_values) > int(width/3)):
                 x = np.max(x_values)
-                return int(x - (width * 3/8))
+                return int(x - (width * 2/8))
             
 
         if(x == SENTINEL and not self.exited_sentinel):
@@ -254,7 +295,13 @@ class ReallyGoodStateMachine:
                 x = np.min(x_values)
                 if(self.entered_sentinel):
                     self.exited_sentinel = True
-                return int(x + (width * 3/8))
+                if(x < int(width/2)):
+                    return int(x + (width * 2/8))
+                else:
+                    self.exited_sentinel = False
+                
+                    
+                
        
         # Mirror: If nothing found, default to the left-side equivalent (30%)
         if x == SENTINEL and not self.exited_sentinel:
@@ -268,6 +315,9 @@ class ReallyGoodStateMachine:
         if self.exited_sentinel:
             return int(prev_x)
         #  + (width/3)
+
+        print("RETURNING NOTHNIG")
+        return x
         
 
     def run(self):
@@ -280,6 +330,9 @@ class ReallyGoodStateMachine:
             if not ret:
                 break
             height, width = img.shape[:2]
+            img = img[:, int(width/2) : width]
+            height, width = img.shape[:2]
+
             # if(self.right_to_left):
             #     prev_x = int(width * 3/4)
             # else:
@@ -329,5 +382,5 @@ class ReallyGoodStateMachine:
 
 
 machine = ReallyGoodStateMachine()
-machine.right_to_left = machine.set_right_or_left()
+machine.right_to_left = machine.set_right_to_left()
 machine.run()
