@@ -134,13 +134,15 @@ class hsv:
                       segment = results.masks.xy[i]
                       segment_array = np.array([segment], dtype=np.int32)
                       cv2.fillPoly(self.barrel_mask, [segment_array], color=(255, 0, 0))
+          print(f"barrel_mode: YOLO")
+          print()
           return self.barrel_mask
         
         else: # mimic barrel_boxes from YOLO and generate mask the same way
             if not (self.barrel_mode in self.hsv_filters):
-                # assume they want an orange-like color (TODO: find a better good default color)
+                # assume they want an orange-like color (TODO: find a better default color)
                 self.hsv_filters[self.barrel_mode] = {
-                    'h_upper': 35, 'h_lower': 35,
+                    'h_upper': 35, 'h_lower': 45,
                     's_upper': 100, 's_lower': 80,
                     'v_upper': 255, 'v_lower': 200
                 }
@@ -155,15 +157,16 @@ class hsv:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             barrel_boxes = []
-            width = self.hsv_image[1]
-            height = self.hsv_image[0]
+            width = self.hsv_image.shape[1]
+            height = self.hsv_image.shape[0]
 
+            self.barrel_mask = np.zeros((height, width), dtype=np.uint8)
             for cnt in contours:
                 if cv2.contourArea(cnt) > 200:
-                    x_min = 0
-                    x_max = width - 1
-                    y_min = 0
-                    y_max = height - 1
+                    x_min = width - 1
+                    x_max = 0
+                    y_min = height - 1
+                    y_max = 0
 
                     for point in cnt:
                         x = point[0, 0]
@@ -174,15 +177,21 @@ class hsv:
                         if x > x_max:
                             x_max = x
                         if y < y_min:
-                            y_min = x
+                            y_min = y
                         if y > y_max:
-                            y_max = x
+                            y_max = y
 
-                    barrel_boxes.append([x_min / width, y_min / height, x_max / width, y_max / height]) # these are normalized apparently
+                    current_box = [x_min / width, y_min / height, x_max / width, y_max / height] # these are normalized apparently
+                    barrel_boxes.append(current_box)
+                    # cv2.drawContours(self.barrel_mask, [cnt], -1, 255, thickness=cv2.FILLED)
+
+                    # cv2.drawContours(self.final, [cnt], -1, 255, thickness=cv2.FILLED)
 
             if not barrel_boxes:
-                self.barrel_mask = np.zeros((width, height), dtype=np.uint8)
                 self.barrel_boxes = None
+                print(f"barrel_mode filter: {self.barrel_mode}")
+                print(f"0 contours found")
+                print()
                 return self.barrel_mask
             else:
                 for barrel in barrel_boxes:
@@ -195,6 +204,9 @@ class hsv:
                     cv2.fillPoly(self.barrel_mask, [barrel_vertices], color=(255, 0, 0))
 
                 self.barrel_boxes = barrel_boxes
+                print(f"barrel_mode filter: {self.barrel_mode}")
+                print(f"{len(self.barrel_boxes)} contours found")
+                print()
                 return self.barrel_mask
                     
     

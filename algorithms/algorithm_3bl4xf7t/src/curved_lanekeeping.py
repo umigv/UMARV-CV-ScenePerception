@@ -6,6 +6,7 @@ from hsv import hsv
 class CurvedLanekeeping:
     # Left and right bounds should be kept symmetric
     def __init__(self, debug: bool = False, barrels: bool = True,
+                 barrel_mode: str = "YOLO",
                  left_bounds: tuple[float, float] = (0.15, 0.45),
                  right_bounds: tuple[float, float] = (0.55, 0.85),
                  vertical_bounds: tuple[float, float] = (0.2, 0.8)):
@@ -25,6 +26,7 @@ class CurvedLanekeeping:
         self.height = None
 
         self.look_for_barrels = barrels
+        self.barrel_mode = barrel_mode
 
         self.left_bounds = left_bounds
         self.right_bounds = right_bounds
@@ -40,6 +42,8 @@ class CurvedLanekeeping:
         
         self.white_mask = dict["white"]
         self.yellow_mask = dict["yellow"]
+        if self.barrel_mode != "YOLO":
+          self.barrel_color_mask = dict["orange"]
 
         # final_bgr = cv2.cvtColor(self.final, cv2.COLOR_GRAY2BGR)
         # combined = np.hstack((self.image, final_bgr))
@@ -49,7 +53,6 @@ class CurvedLanekeeping:
     def state_machine(self):
         # looking for barrel
         if self.hsv_obj.barrel_boxes is not None:
-            print(self.hsv_obj.barrel_boxes)
             for segment in self.hsv_obj.barrel_boxes:
                 x_min, y_min, x_max, y_max = segment
                 vertices = np.array([
@@ -58,6 +61,10 @@ class CurvedLanekeeping:
                     [x_max * self.width, y_max * self.height],
                     [x_min * self.width, y_max * self.height]
                 ], dtype=np.int32)
+
+                if self.debug:
+                    # print(vertices)
+                    cv2.rectangle(self.final, vertices[0], vertices[2], 127, 5)
                 
                 if(y_min * self.height > self.height // 2):
                     midpoint = (x_max * self.width) - (x_min * self.width)
@@ -152,10 +159,11 @@ class CurvedLanekeeping:
 
     def run(self):
         cap = cv2.VideoCapture("data/left_curved_road.MOV")
-        self.hsv_obj = hsv("data/left_curved_road.MOV")
+        self.hsv_obj = hsv("data/left_curved_road.MOV", barrel_mode = self.barrel_mode)
 
         # self.hsv_obj.tune("white")
         # self.hsv_obj.tune("yellow")
+        # self.hsv_obj.tune("orange")
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -176,6 +184,12 @@ class CurvedLanekeeping:
                 cv2.imshow("Yellow Mask", self.yellow_mask)
                 cv2.namedWindow("White Mask", cv2.WINDOW_NORMAL)
                 cv2.imshow("White Mask", self.white_mask)
+                cv2.namedWindow("White Mask", cv2.WINDOW_NORMAL)
+                cv2.imshow("White Mask", self.white_mask)
+                if self.barrel_mode != "YOLO":
+                    cv2.namedWindow(f"{self.barrel_mode} Mask", cv2.WINDOW_NORMAL)
+                    cv2.imshow(f"{self.barrel_mode} Mask", self.barrel_color_mask)
+
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -200,7 +214,7 @@ class CurvedLanekeeping:
         return self.final, self.centroid
 
 def main():
-    obj = CurvedLanekeeping(debug = False)
+    obj = CurvedLanekeeping(debug = False, barrel_mode = "orange")
     obj.run()
 
 if __name__ == "__main__":

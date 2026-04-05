@@ -1,20 +1,28 @@
 {
-  "data/left_curved_road.MOV": {
-    "white": {
-      "h_upper": 139,
-      "h_lower": 71,
-      "s_upper": 61,
-      "s_lower": 0,
-      "v_upper": 255,
-      "v_lower": 220
-    },
-    "yellow": {
-      "h_upper": 179,
-      "h_lower": 23,
-      "s_upper": 255,
-      "s_lower": 150,
-      "v_upper": 255,
-      "v_lower": 200
+    "data/left_curved_road.MOV": {
+        "white": {
+            "h_upper": 139,
+            "h_lower": 71,
+            "s_upper": 61,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 220
+        },
+        "yellow": {
+            "h_upper": 179,
+            "h_lower": 23,
+            "s_upper": 255,
+            "s_lower": 150,
+            "v_upper": 255,
+            "v_lower": 200
+        },
+        "orange": {
+            "h_upper": 35,
+            "h_lower": 0,
+            "s_upper": 255,
+            "s_lower": 212,
+            "v_upper": 62,
+            "v_lower": 0
+        }
     }
-  }
 }
