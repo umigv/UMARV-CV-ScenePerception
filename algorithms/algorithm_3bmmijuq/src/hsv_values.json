@@ -1,0 +1,38 @@
+{
+    "0": {
+        "white": {
+            "h_upper": 29,
+            "h_lower": 0,
+            "s_upper": 51,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 137
+        },
+        "yellow": {
+            "h_upper": 29,
+            "h_lower": 0,
+            "s_upper": 51,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 137
+        }
+    },
+    "1": {
+        "yellow": {
+            "h_upper": 107,
+            "h_lower": 0,
+            "s_upper": 255,
+            "s_lower": 201,
+            "v_upper": 255,
+            "v_lower": 0
+        },
+        "white": {
+            "h_upper": 179,
+            "h_lower": 0,
+            "s_upper": 229,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 82
+        }
+    }
+}
