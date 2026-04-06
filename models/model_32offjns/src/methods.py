@@ -49,6 +49,22 @@ def upload_model_weights(model, dbx_access_token, delete=True):
     if delete:
         os.remove(local_model_weights_dir)
 
+def upload_dataset_to_dropbox(dataset_name, dbx_access_token):
+    if dbx_access_token == "":
+        print("Dropbox access token uninitialized. Unable to upload dataset.")
+        return
+    try:
+        dbx = dropbox.Dropbox(dbx_access_token)
+    except:
+        print("Could not connect to Dropbox when attempting to upload dataset.")
+        return
+    # TODO: modify slightly to accomodate the upload of data and labels properly
+    dbx_dataset_dir = f'/UMARV/ComputerVision/ScenePerception/datasets/{dataset_name}'
+    local_dataset_dir = f'{os.getenv("REPO_DIR")}/datasets/{dataset_name}'
+    with open(local_dataset_dir, 'rb') as file:
+        dbx.files_upload(file.read(), dbx_dataset_dir, mode=dropbox.files.WriteMode("overwrite"))
+    print(f"Uploaded dataset \"{dataset_name}\" to Dropbox.")
+
 def download_model_weights(model, dbx_access_token, delete=True):
     if dbx_access_token == "":
         print("Dropbox access token uninitialized. Unable to download model weights.")

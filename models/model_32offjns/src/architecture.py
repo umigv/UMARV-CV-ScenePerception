@@ -41,13 +41,13 @@ class lane_model(nn.Module):
     self.bottleneck = self.conv_block(512, 1024)
     
     # Expansive path
-    self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=1)
+    self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
     self.dec4 = self.conv_block(1024, 512)
-    self.upconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=1)
+    self.upconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
     self.dec3 = self.conv_block(512, 256)
-    self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=1)
+    self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
     self.dec2 = self.conv_block(256, 128)
-    self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=1)
+    self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
     self.dec1 = self.conv_block(128, 64)
     
     # Final layer
