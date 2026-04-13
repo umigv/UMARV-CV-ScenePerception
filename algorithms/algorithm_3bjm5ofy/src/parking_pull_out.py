@@ -188,6 +188,9 @@ class ParkingPullOut:
 
         # Condition to stop once barrel can be seen and transition to state 3
         # Put logic here
+        if self.hsv_obj.barrel_boxes is not None:
+            self.state_2_done = True
+
 
 
             
@@ -195,7 +198,7 @@ class ParkingPullOut:
         
 
 
-    # state 3: after turn, stop in front of the barrel 
+    # state 3: after turn, stop in front of the barrel.
     def state_3(self, yellow_cnts):
         # look for barrel
         if self.hsv_obj.barrel_boxes is not None:
@@ -215,7 +218,7 @@ class ParkingPullOut:
                         self.centroid = midpoint
                         return
 
-        # normal state 4
+        # normal state 3
         min_y = self.height - 1
         top_yellow_point = None
 
@@ -328,12 +331,10 @@ class ParkingPullOut:
         if (num_yellow_dashed == 0 or (best_cnt is None)) and not self.state_2_done: # state 2
             self.state_2()
             return
-        elif not self.state_3_done: # state 3
+        elif not self.state_3_done: # to start state 3
             self.state_2_done = True
-            self.state_3(best_cnt)
-        else: # state 3
             self.look_for_barrels = True
-            self.state_4(contours)
+            self.state_3(contours)
 
 
 def main():
