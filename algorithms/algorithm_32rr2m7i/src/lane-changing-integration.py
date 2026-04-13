@@ -8,7 +8,6 @@ class ReallyGoodStateMachine:
         self.person_model = YOLO('./data/yolov8n.pt')
         self.lines_model = YOLO('./data/best_yolov11_lane_lines.pt')
         self.barrel_model = YOLO('./data/obstacles.pt')
-        #
 
         # these two captures are 1 : from the google drive #9, 
         # and the other is the mirrored version of the same video
@@ -19,6 +18,12 @@ class ReallyGoodStateMachine:
         self.cap = cv2.VideoCapture("data/HD2K_SN36466710_18-50-10.mp4") 
         self.cap__ = cv2.VideoCapture("data/HD2K_SN36466710_18-51-17.mp4") 
         #
+        self.y_waypoint = 0
+        self.x_waypoint = 0
+
+        self.atBarrel = False
+        self.running = True
+        self.one_waypoint_placed = False
 
         # Frame counts are for reducing frame rate``
         self.frame_count = 0
@@ -154,7 +159,7 @@ class ReallyGoodStateMachine:
         return m, label
 
     #Changes Lanes
-    def change_lanes(self, img, y_waypoint, prev_x):
+    def change_lanes(self, img, y_in, prev_x):
         
     
         full_mask1, lines_label = self.get_mask(self.lines_model, img, mode="lines")
@@ -177,9 +182,9 @@ class ReallyGoodStateMachine:
         lanes_img[lanes_mask > 0.5] = 255 
 
         if (self.right_to_left):
-            x  = self.find_waypoint_left(y_waypoint, lanes_img, prev_x )
+            x  = self.find_waypoint_left(y_in, lanes_img, prev_x )
         else :
-            x = self.find_waypoint_right(y_waypoint, lanes_img, prev_x)
+            x = self.find_waypoint_right(y_in, lanes_img, prev_x)
         done_ = False
 
         width = img.shape[1]
@@ -217,6 +222,8 @@ class ReallyGoodStateMachine:
         py2 = 0
         px1 = 0
 
+        mask = np.zeros(img.shape[:2], dtype=np.uint8)
+
         for results in results:
             boxes = results.boxes.xyxy.tolist()
             confidences = results.boxes.conf.tolist()
@@ -233,17 +240,25 @@ class ReallyGoodStateMachine:
                     cv2.waitKey(1)    
                     if size_person > 0.12:
                         print("person within range")
-                        return True, (py2 + range), px1
+                        return True, (py2 + range), px1, mask
                     else:
-                        return False, (py2 + range), px1
+                        return False, (py2 + range), px1, mask
                     
 
                 
-        return False, py2, px1
+        return False, py2, px1, mask
 
     def at_barrel(self, capture, img):
         # Placeholder logic
-        return False
+        height, width = img.shape[:2]
+        x = int(width/2) 
+        y = int(height / 10)
+        full_mask1, lines_label = self.get_mask(self.lines_model, img, mode="lines")
+        full_mask2, barrel_label = self.get_mask(self.barrel_model, img, mode="barrel")
+    
+        full_mask = cv2.bitwise_or(full_mask1, full_mask2)
+
+        return False, full_mask, [x,y]
     
     def add_waypoint(self, y, img, x):
         center = (x, y)
@@ -318,8 +333,57 @@ class ReallyGoodStateMachine:
 
         print("RETURNING NOTHNIG")
         return x
+            
+
+    def run_frame(self, img):
+        height, width = img.shape[:2]
+        img = img[:, int(width/2) : width]
+        height, width = img.shape[:2]
+
+        prev_x = int(width/2)
+        self.frame_count += 1
+
+        # State Logic
+        if(self.state == self.state_1):
+            see_pedestrian, self.y_waypoint, self.x_waypoint, mask = self.sees_pedestrian_in_lane(img)
+            self.add_waypoint(self.y_waypoint, img, self.x_waypoint)
+            if(see_pedestrian):
+                print("PERSON DETECTED")
+                self.state = self.state_2
+                print(self.state)
+            return mask, [self.x_waypoint, self.y_waypoint]
         
 
+            
+        elif(self.state == self.state_2):
+            
+            if(not self.one_waypoint_placed):
+                self.add_waypoint(self.y_waypoint,img, self.x_waypoint)
+                self.one_waypoint_placed = True
+            done, self.x_waypoint, full_mask = self.change_lanes( img, self.y_waypoint,prev_x)
+            self.add_waypoint(self.y_waypoint,img, self.x_waypoint)
+            print(f"self.x_waypoint : {self.x_waypoint}")
+            prev_x = self.x_waypoint
+            cv2.imshow("withwaypoint", full_mask)
+
+            if(done):
+                self.state = 3
+
+            return full_mask, [self.x_waypoint, self.y_waypoint]
+                
+        elif(self.state == self.state_3):
+            self.atBarrel, mask, [self.x_waypoint, self.y_waypoint] = self.at_barrel(self.cap, img)
+            if(self.atBarrel):
+                running = False
+                print("AT BARREL")     
+
+            return mask, [self.x_waypoint, self.y_waypoint]
+
+
+                
+                
+            
+            
    
 
         
@@ -327,62 +391,16 @@ class ReallyGoodStateMachine:
 
     def run(self):
         
-        running = True
-        one_waypoint_placed = False
-
-        while(running and self.cap.isOpened()):
+        
+        while(self.running and self.cap.isOpened()):
             # read frames
             ret, img = self.cap.read()
             if not ret:
                 break
-            height, width = img.shape[:2]
-            img = img[:, int(width/2) : width]
-            height, width = img.shape[:2]
 
-            # if(self.right_to_left):
-            #     prev_x = int(width * 3/4)
-            # else:
-            #     prev_x = int(width/4)
-            prev_x = int(width/2)
-            self.frame_count += 1
-        
-            if self.frame_count % self.process_per_frame != 0:
-                continue
+            mask, waypoint = self.run_frame(img)
 
-            # State Logic
-            if(self.state == self.state_1):
-                see_pedestrian, y_waypoint, x_waypoint = self.sees_pedestrian_in_lane(img)
-                self.add_waypoint(y_waypoint, img, x_waypoint)
-                if(see_pedestrian):
-                    print("PERSON DETECTED")
-                    self.state = self.state_2
-                    print(self.state)
-                    
-
-             
-            elif(self.state == self.state_2):
-                
-                if(not one_waypoint_placed):
-                    self.add_waypoint(y_waypoint,img, x_waypoint)
-                    one_waypoint_placed = True
-                done, x_waypoint, full_mask = self.change_lanes( img, y_waypoint,prev_x)
-                self.add_waypoint(y_waypoint,img, x_waypoint)
-                print(f"x_waypoint : {x_waypoint}")
-                prev_x = x_waypoint
-                cv2.imshow("withwaypoint", full_mask)
-
-                if(done):
-                    self.state = 3
-                    
-            elif(self.state == self.state_3):
-                if(self.at_barrel(self.cap, img)):
-                    running = False
-                    print("AT BARREL")     
-            
-            
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                self.cap.release()
-                cv2.destroyAllWindows()
                 break
 
 

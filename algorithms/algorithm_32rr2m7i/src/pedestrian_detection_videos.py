@@ -16,6 +16,7 @@ while cap.isOpened():
     ret, img = cap.read()
     if not ret:
         break
+    height,width = img.shape[:2]
     frame_count += 1
     if frame_count % process_per_frame != 0:
         continue
@@ -79,14 +80,16 @@ while cap.isOpened():
                     merged_vest_y1 = py1 + min_y
                     merged_vest_x2 = px1 + max_x
                     merged_vest_y2 = py1 + max_y
-
-                    cv2.rectangle(img, (merged_vest_x1, merged_vest_y1), (merged_vest_x2, merged_vest_y2), (0, 165, 255), 2)
-                    cv2.putText(img, f"orange vest", (merged_vest_x1, merged_vest_y1-10), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
-                    
-                    cv2.rectangle(img, (px1, py1), (px2, py2), (0, 255, 0), 2)
-                    cv2.putText(img, f"orange vest person", (px1, py1-10), 
+                    if (abs(merged_vest_x2-merged_vest_x1) > int(width / 15) and abs(merged_vest_y2-merged_vest_y1) > int(width / 15)):
+                        cv2.rectangle(img, (merged_vest_x1, merged_vest_y1), (merged_vest_x2, merged_vest_y2), (0, 165, 255), 2)
+                        cv2.putText(img, f"orange vest", (merged_vest_x1, merged_vest_y1-10), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                        
+                        cv2.rectangle(img, (px1, py1), (px2, py2), (0, 255, 0), 2)
+                        cv2.putText(img, f"orange vest person", (px1, py1-10), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+                    
+                    
                 
     cv2.imshow('Safety Vest Detection', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
