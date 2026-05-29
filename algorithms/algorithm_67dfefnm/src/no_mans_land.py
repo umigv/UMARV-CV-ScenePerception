@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import numpy as np
 
@@ -148,10 +150,29 @@ class NoMansLand:
             self.state_1()
 
     def run(self):
-        vid = "ramp6.MOV"
-        path = "data/" + vid
-        cap = cv2.VideoCapture(path) # 0 for webcam, 1,2 for external cameras
-        self.hsv_obj = hsv("green-reference")
+        '''
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        vid = "output.mp4"
+        path = os.path.join(script_dir, "data", vid)  # Always resolves correctly
+        cap = cv2.VideoCapture(path)
+        # vid = "output.mp4"
+        # path = "data/" + vid
+        # cap = cv2.VideoCapture(path) # 0 for webcam, 1,2 for external cameras
+        self.hsv_obj = hsv("output.mp4")
+        '''
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        vid = "output.mp4"
+        local_path = os.path.join(script_dir, "data", vid)
+        root_path = os.path.join(script_dir, "..", "..", "..", "data", vid)
+        path = local_path if os.path.exists(local_path) else root_path
+
+        cap = cv2.VideoCapture(path)
+        if not cap.isOpened():
+            raise FileNotFoundError(f"Could not open video at:\n  {local_path}\n  {root_path}")
+
+        self.hsv_obj = hsv(path)  # ← fixed
+        self.hsv_obj.tune("ramp_color")
 
         # green reference
         # "ramp_color": {
@@ -163,7 +184,6 @@ class NoMansLand:
         #     "v_lower": 120
         # }
 
-        # self.hsv_obj.tune("ramp_color")
         # you need a JSON entry with the same name as your video to use this
         # you can rename the "green-reference" entry to your video temporarily to tune it
                     

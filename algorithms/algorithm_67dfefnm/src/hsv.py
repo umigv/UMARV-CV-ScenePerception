@@ -17,33 +17,31 @@ class hsv:
         self.barrel_boxes = None
         self.barrel_model =  YOLO("data/obstacles.pt")
         self.lane_model = YOLO("data/laneswithcontrast.pt")
+        self.cap = cv2.VideoCapture(video_path)
 
         self.YOLO_barrels = False
+        self.YOLO_lanes = False
         self.load_hsv_values()
         
         
     def load_hsv_values(self):
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hsv_values.json')
+        key = os.path.basename(self.video_path)
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as file:
                 all_hsv_values = json.load(file)
-                self.hsv_filters = all_hsv_values.get(str(self.video_path), {})
+                self.hsv_filters = all_hsv_values.get(key, {})
         else:
-            # print("Matt put it in the wrong spot")
-            # Initialize with an empty filter map if the JSON file doesn't exist
-            self.hsv_filters["white"] = {
-                'h_upper': 29, 'h_lower': 0,
-                's_upper': 51, 's_lower': 0,
-                'v_upper': 255, 'v_lower': 137
-            }
-            # print(self.hsv_filters)
+            self.hsv_filters = {}
 
     def save_hsv_values(self):
+        json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hsv_values.json')
         all_hsv_values = {}
-        if os.path.exists('hsv_values.json'):
-            with open('hsv_values.json', 'r') as file:
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as file:
                 all_hsv_values = json.load(file)
-        all_hsv_values[str(self.video_path)] = self.hsv_filters
-        with open('hsv_values.json', 'w') as file:
+        all_hsv_values[os.path.basename(self.video_path)] = self.hsv_filters
+        with open(json_path, 'w') as file:
             json.dump(all_hsv_values, file, indent=4)
 
     def h_upper_callback(self, value):
@@ -93,6 +91,7 @@ class hsv:
             self.setup = False
             
     def __update_filter(self, filter_name, key, value):
+        print(type(self.hsv_filters), self.hsv_filters) # Debugging line to check the type and content of hsv_filters
         self.hsv_filters[filter_name][key] = value
         _, filters = self.update_mask()
         cv2.imshow("Mask", filters[filter_name])
@@ -141,18 +140,27 @@ class hsv:
         
     def tune(self, filter_name):
         if filter_name not in self.hsv_filters:
-            # Initialize default values for the new filter
             self.hsv_filters[filter_name] = {
-                'h_upper': 179, 'h_lower': 0,
-                's_upper': 255, 's_lower': 0,
-                'v_upper': 255, 'v_lower': 0
-            }
+            'h_upper': 179, 'h_lower': 0,
+            's_upper': 255, 's_lower': 0,
+            'v_upper': 255, 'v_lower': 0
+        }
         filter_values = self.hsv_filters[filter_name]
         self.setup = True
-        cap = cv2.VideoCapture(self.video_path)
-        if not cap.isOpened():
+
+        if not self.cap.isOpened():
             print(f"Error: Unable to open video file {self.video_path}")
             return
+
+        # ← Read first frame BEFORE creating trackbars
+        ret, frame = self.cap.read()
+        if not ret:
+            print("Error: Could not read first frame")
+            return
+        self.image = frame
+        self.adjust_gamma()
+        self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+
 
         cv2.namedWindow('control pannel')
         cv2.createTrackbar('H_upper', 'control pannel', filter_values['h_upper'], 179,
@@ -170,10 +178,9 @@ class hsv:
         cv2.createTrackbar('Done Tuning', 'control pannel', 0, 1, self.on_button_click)
 
         while self.setup:
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
             if not ret:
-                # If the video ends, reset to the beginning
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # ← correct
                 continue
             self.image = frame
             self.adjust_gamma()
@@ -243,3 +250,38 @@ class hsv:
         self.adjust_gamma()
         self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
         return self.update_mask()
+
+
+#orig in hsv_values.json:
+'''
+"data/ramp.MOV": {
+        "ramp_color": {
+            "h_upper": 66,
+            "h_lower": 15,
+            "s_upper": 213,
+            "s_lower": 56,
+            "v_upper": 255,
+            "v_lower": 77
+        }
+    },
+    "data/ramp1.MOV": {
+        "ramp_color": {
+            "h_upper": 103,
+            "h_lower": 42,
+            "s_upper": 98,
+            "s_lower": 0,
+            "v_upper": 255,
+            "v_lower": 207
+        }
+    },
+    "green-reference": {
+        "ramp_color": {
+            "h_upper": 107,
+            "h_lower": 61,
+            "s_upper": 151,
+            "s_lower": 61,
+            "v_upper": 231,
+            "v_lower": 120
+        }
+    },
+'''

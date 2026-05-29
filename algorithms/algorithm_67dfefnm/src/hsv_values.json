@@ -28,5 +28,15 @@
             "v_upper": 231,
             "v_lower": 120
         }
+    },
+    "output.mp4": {
+        "ramp_color": {
+            "h_upper": 116,
+            "h_lower": 58,
+            "s_upper": 195,
+            "s_lower": 33,
+            "v_upper": 70,
+            "v_lower": 14
+        }
     }
 }
