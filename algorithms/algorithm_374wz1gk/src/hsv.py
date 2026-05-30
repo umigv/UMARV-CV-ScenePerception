@@ -14,8 +14,8 @@ class hsv:
         self.barrel = True
         self.video_path = video_path
         self.barrel_mask = None
-        self.barrel_model =  YOLO("path to obstacles.pt")
-        self.model = YOLO("path to laneswithcontrast.pt")
+        self.barrel_model =  YOLO("/home/potoo/Coding-Spaces/arv/UMARV-CV-ScenePerception/algorithms/algorithm_32rr2m7i/src/data/obstacles.pt")
+        self.model = YOLO("/home/potoo/Coding-Spaces/arv/UMARV-CV-ScenePerception/algorithms/algorithm_32rr2m7i/src/data/laneswithcontrast.pt")
         self.load_hsv_values()
         
     def load_hsv_values(self):
