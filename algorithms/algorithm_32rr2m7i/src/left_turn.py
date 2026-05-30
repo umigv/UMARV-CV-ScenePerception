@@ -61,7 +61,7 @@ def find_left_most_lane(mask):
 # use cv2.imread(filename) then put the output into cv2.cvtcolor(image, cv2.RBGTOHSV)
 
 
-cap = cv2.VideoCapture("data/right_turn.mp4")
+cap = cv2.VideoCapture("data/left_turn_comp.mov")
 while cap.isOpened():
     ret, image = cap.read()
     if ret:
