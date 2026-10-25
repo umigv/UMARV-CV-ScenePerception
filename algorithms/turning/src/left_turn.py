@@ -246,10 +246,11 @@ class leftTurn:
             self.state_3(best_cnt)
 
     def run(self):
-        cap = cv2.VideoCapture('/home/potoo/Coding-Spaces/arv/UMARV-CV-ScenePerception/algorithms/algorithm_32rr2m7i/src/data/left_turn_comp.mov')
-        self.hsv_obj = hsv('/home/potoo/Coding-Spaces/arv/UMARV-CV-ScenePerception/algorithms/algorithm_32rr2m7i/src/data/left_turn_comp.mov')
+        cap = cv2.VideoCapture('data/left_turn_comp.mov')
+        self.hsv_obj = hsv('data/left_turn_comp.mov')
+        # self.hsv_obj = hsv('data/trimmed.mp4')
         
-        self.hsv_obj = self.hsv_obj.tune('/home/potoo/Coding-Spaces/arv/UMARV-CV-ScenePerception/algorithms/algorithm_32rr2m7i/src/data/left_turn_comp.mov')
+        # self.hsv_obj = self.hsv_obj.tune('data/trimmed.mp4')
         
         while cap.isOpened():
             ret, self.image = cap.read()
@@ -270,8 +271,10 @@ class leftTurn:
         
         self.image = frame
         self.height, self.width, _ = self.image.shape
-    
+
+        print("calling update mask")
         self.update_mask()
+        print("updated mask")
 
 
 def main():

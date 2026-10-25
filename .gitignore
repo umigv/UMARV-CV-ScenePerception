@@ -7,3 +7,4 @@ env
 *.jpg
 *.png
 __pycache__
+venv/

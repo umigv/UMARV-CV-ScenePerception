@@ -199,6 +199,7 @@ class hsv:
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
             self.image = frame
+            # print("frame", frame)
             self.adjust_gamma()
             self.hsv_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
             mask, dict = self.update_mask()
